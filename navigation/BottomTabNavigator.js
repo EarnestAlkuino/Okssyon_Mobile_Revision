@@ -6,6 +6,7 @@ import MessagePage from '../screens/MessagePage';
 import PostPage from '../screens/PostPage';
 import NotificationPage from '../screens/NotificationPage';
 import ProfilePage from '../screens/ProfilePage';
+import AuctionStackNavigator from './AuctionStackNavigator';  // Import the stack navigator for categories
 
 const Tab = createBottomTabNavigator();
 
@@ -18,7 +19,7 @@ const BottomTabNavigator = () => {
           let iconName;
 
           if (route.name === 'Home') {
-            iconName = focused ? 'home' : 'home-outline'; // Example Ionicons icon
+            iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Message') {
             iconName = focused ? 'chatbubble' : 'chatbubble-outline';
           } else if (route.name === 'Post') {
@@ -54,6 +55,13 @@ const BottomTabNavigator = () => {
       <Tab.Screen name="Post" component={PostPage} />
       <Tab.Screen name="Notification" component={NotificationPage} />
       <Tab.Screen name="Profile" component={ProfilePage} />
+      
+      {/* Hidden Auction Stack to keep bottom tabs visible without highlighting */}
+      <Tab.Screen 
+        name="AuctionStack" 
+        component={AuctionStackNavigator} 
+        options={{ tabBarButton: () => null }}  // Hide tab button for this stack
+      />
     </Tab.Navigator>
   );
 };

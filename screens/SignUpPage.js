@@ -1,14 +1,13 @@
 import React from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
-import Button from '../Components/Button'; // Import your reusable Button component
-
+import Button from '../Components/Button'; 
 const SignupPage = ({ navigation }) => {
   return (
     <View style={styles.container}>
-      {/* Title */}
+    
       <Text style={styles.title}>Create an Account</Text>
 
-      {/* Input fields */}
+      
       <TextInput
         style={styles.input}
         placeholder="Full Name"
@@ -38,7 +37,7 @@ const SignupPage = ({ navigation }) => {
         title="Sign Up"
         style={styles.signupButton}
         textStyle={styles.signupButtonText}
-        onPress={() => navigation.navigate('LoginPage')} // Navigate to login after signing up
+        onPress={() => navigation.navigate('VerifyPage')} 
       />
 
       {/* Already have an account text */}

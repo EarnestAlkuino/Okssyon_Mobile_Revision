@@ -67,10 +67,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,            // Rounded corners
     padding: 10,                 // Padding inside the container
     marginBottom: 20,            // Space below the search container
-    width: '110%',                // Set the width to 90% of the screen
+    width: '110%',               // Set the width to 90% of the screen
     height: 38,                  // Adjust the height to make it taller or shorter
     alignSelf: 'center',
-    
   },
   searchIcon: {
     width: 20,

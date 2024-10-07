@@ -19,7 +19,7 @@ const LandingPage3 = ({ navigation }) => {
       {/* Signup Button */}
       <Button
         title="Sign Up"
-        onPress={() => navigation.navigate('SignupPage')} // Assuming there is a SignupPage
+        onPress={() => navigation.navigate('SignUpPage')} // Assuming there is a SignupPage
         style={styles.signupButton} // Border only, transparent background
         textStyle={styles.signupButtonText} // Customize the text color to dark green
       />
@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
     width: '80%',
     backgroundColor: '#405e40', // Dark green background for login button
     paddingVertical: 10,
-    borderRadius: 25,
+    borderRadius: 10,
     marginBottom: 20,
   },
   loginButtonText: {
@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
     width: '80%',
     backgroundColor: 'transparent', // Transparent background for signup button
     paddingVertical: 10,
-    borderRadius: 25,
+    borderRadius: 10,
     borderColor: '#405e40', // Dark green border
     borderWidth: 2,
     marginBottom: 20,

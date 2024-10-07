@@ -1,29 +1,61 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { NavigationContainer } from '@react-navigation/native';
-import LoginPage from '../screens/LoginPage';  // Import the login screen
-import SignupPage from '../screens/SignUpPage';  // Import the signup screen
-import BottomTabNavigator from './BottomTabNavigator';  // Import the tab navigator
+import LandingPage from '../screens/LandingPage';
+import LandingPage2 from '../screens/LandingPage2';
+import LandingPage3 from '../screens/LandingPage3';
+import LoginPage from '../screens/LoginPage';
+import SignUpPage from '../screens/SignUpPage';
+import VerifyPage from '../screens/VerifyPage';
+import BottomTabNavigator from '../navigation/BottomTabNavigator';
+import AuctionPage from '../screens/AuctionPage';
+
+
 
 const Stack = createStackNavigator();
 
 const AppNavigator = () => {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="LoginPage">
-        <Stack.Screen 
-          name="LoginPage" 
-          component={LoginPage} 
+      <Stack.Navigator>
+        <Stack.Screen
+          name="LandingPage"
+          component={LandingPage}
+          options={{ headerShown: false }}  // Hides the header
+        />
+        <Stack.Screen
+          name="LandingPage2"
+          component={LandingPage2}
           options={{ headerShown: false }}
         />
-        <Stack.Screen 
-          name="SignupPage" 
-          component={SignupPage} 
+        <Stack.Screen
+          name="LandingPage3"
+          component={LandingPage3}
           options={{ headerShown: false }}
         />
-        <Stack.Screen 
-          name="MainTabs" 
-          component={BottomTabNavigator}  // Navigate to BottomTabNavigator after login
+        <Stack.Screen
+          name="LoginPage"
+          component={LoginPage}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="SignUpPage"
+          component={SignUpPage}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="VerifyPage"
+          component={VerifyPage}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="AuctionPage"   // Adding the AuctionPage screen here
+          component={AuctionPage}
+          options={{ headerShown: false }}   // You can choose to show/hide the header
+        />
+        <Stack.Screen
+          name="MainTabs"
+          component={BottomTabNavigator}  // Bottom tab navigator after login or signup
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

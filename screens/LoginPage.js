@@ -46,9 +46,9 @@ const LoginPage = ({ navigation }) => {
 
       {/* Social Login */}
       <View style={styles.socialLoginContainer}>
-        <Image source={require('../assets/Facebook.png')} style={styles.socialIcon} />
+        <Image source={require('../assets/fb.png')} style={styles.socialIcon} />
         <Image source={require('../assets/ios.png')} style={styles.socialIcon} />
-        <Image source={require('../assets/Google.png')} style={styles.socialIcon} />
+        <Image source={require('../assets/gg.png')} style={styles.socialIcon} />
       </View>
 
       {/* Sign Up Text */}
