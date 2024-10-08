@@ -27,7 +27,7 @@ const LoginPage = ({ navigation }) => {
         />
         <Button
           title="Forgot Password?"
-          onPress={() => navigation.navigate('ForgotPasswordScreen')}
+          onPress={() => navigation.navigate('ForgotPasswordPage')}
           style={{ backgroundColor: 'transparent' }}
           textStyle={styles.forgotPasswordText}
         />

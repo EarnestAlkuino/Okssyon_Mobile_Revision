@@ -6,7 +6,7 @@ import MessagePage from '../screens/MessagePage';
 import PostPage from '../screens/PostPage';
 import NotificationPage from '../screens/NotificationPage';
 import ProfilePage from '../screens/ProfilePage';
-import AuctionStackNavigator from './AuctionStackNavigator';  // Import the stack navigator for categories
+import AuctionStackNavigator from './AuctionStackNavigator'; 
 
 const Tab = createBottomTabNavigator();
 
