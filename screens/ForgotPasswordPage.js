@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import Icon from 'react-native-vector-icons/Ionicons';  // Importing the Icon library
 
 const ForgotPasswordPage = () => {
   const navigation = useNavigation();
@@ -9,7 +10,7 @@ const ForgotPasswordPage = () => {
     <View style={styles.container}>
       {/* Back Button */}
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-        <Text style={styles.backButtonText}>{"<"}</Text>
+        <Icon name="chevron-back" size={24} color="#fff" />
       </TouchableOpacity>
 
       {/* Lock Icon */}
@@ -38,17 +39,13 @@ const ForgotPasswordPage = () => {
       {/* Social Media Login Buttons */}
       <View style={styles.socialButtons}>
         <TouchableOpacity>
-          <Image 
-            source={{ uri: 'https://cdn-icons-png.flaticon.com/512/124/124010.png' }} 
-            style={styles.socialIcon} 
-          />
+          <Image source={require('../assets/fb.png')} style={styles.socialIcon} />
         </TouchableOpacity>
+
         <TouchableOpacity>
-          <Image 
-            source={{ uri: 'https://cdn-icons-png.flaticon.com/512/179/179330.png' }} 
-            style={styles.socialIcon} 
-          />
+          <Image source={require('../assets/ios.png')} style={styles.socialIcon} />
         </TouchableOpacity>
+
         <TouchableOpacity>
           <Image 
             source={{ uri: 'https://cdn-icons-png.flaticon.com/512/281/281764.png' }} 
@@ -79,11 +76,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 50,
     left: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,  // Making it round
+    backgroundColor: '#335441',  // Button background color
+    justifyContent: 'center',
+    alignItems: 'center',
     zIndex: 1,
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: '#335441',
   },
   lockIcon: {
     width: 100,
