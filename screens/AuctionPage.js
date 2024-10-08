@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, StatusBar } from 'react-native';
-import { Ionicons } from '@expo/vector-icons'; // Make sure to install this package for icons
-
+import { Ionicons } from '@expo/vector-icons';
 const auctionCategories = [
   { id: '1', title: 'Cattle', icon: require('../assets/iconCattle.png') },
   { id: '2', title: 'Horse', icon: require('../assets/iconHorse.png') },
@@ -41,34 +40,34 @@ const AuctionPage = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Hide the status bar */}
+      
       <StatusBar hidden={true} />
 
-      {/* Background Container */}
+      
       <View style={styles.backgroundContainer}>
-        {/* Back Button */}
+       
         <TouchableOpacity
-          style={styles.backButton} // Position the back button
+          style={styles.backButton} 
           onPress={() => navigation.goBack()}
         >
           <Ionicons name="arrow-back" size={24} color="#335441" />
         </TouchableOpacity>
 
-        {/* Logo */}
+        
         <Image source={require('../assets/logo1.png')} style={styles.logo} />
 
-        {/* Search Button */}
+        
         <TouchableOpacity
-          style={styles.searchButton} // Position the search button
+          style={styles.searchButton} 
         >
           <Ionicons name="search" size={24} color="#335441" />
         </TouchableOpacity>
 
-        {/* Category Icons */}
+        
         {renderCategoryIcons()}
       </View>
 
-      {/* Selected Category Display */}
+     
       <View style={styles.content}>
         <Text style={styles.title}>Welcome to {selectedCategory} Auctions</Text>
       </View>
@@ -81,37 +80,37 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backgroundContainer: {
-    backgroundColor: 'rgba(182, 194, 148, 0.21)', // Background color for both header and icons
+    backgroundColor: 'rgba(182, 194, 148, 0.21)', 
     paddingBottom: 10,
-    paddingTop: 0, // No padding at the top, start from the very top of the screen
+    paddingTop: 0, 
     borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
-    position: 'relative', // Enables absolute positioning inside this container
+    position: 'relative', 
   },
   backButton: {
     position: 'absolute',
-    top: 10, // Adjust this value for vertical positioning
-    left: 10, // Adjust this value for horizontal positioning
-    zIndex: 1, // Ensure the button stays on top of other elements
+    top: 10, 
+    left: 10, 
+    zIndex: 1, 
   },
   searchButton: {
     position: 'absolute',
-    top: 10, // Adjust this value for vertical positioning
-    right: 10, // Adjust this value for horizontal positioning
-    zIndex: 1, // Ensure the button stays on top of other elements
+    top: 10, 
+    right: 10, 
+    zIndex: 1, 
   },
   logo: {
-    width: 150, // Adjusted size
+    width: 150,
     height: 50,
     resizeMode: 'contain',
-    alignSelf: 'center', // Center the logo horizontally
-    marginTop: 10, // Adjust for spacing between the logo and top
+    alignSelf: 'center', 
+    marginTop: 10, 
   },
   iconContainer: {
     paddingLeft: 10,
     paddingRight: 10,
     paddingVertical: 10,
-    marginTop: 20, // Space between the icons and the logo
+    marginTop: 20, 
   },
   iconWrapper: {
     alignItems: 'center',

@@ -7,7 +7,7 @@ const LandingPage2 = ({ navigation }) => {
     <View style={styles.container}>
       <Image source={require('../assets/logo.png')} style={styles.logo} />
       
-      {/* Tagline with specific styling for "farmers" and "auctions" */}
+
       <Text style={styles.tagline}>
       <Text style={styles.highlightedText1}>farmers</Text> 
       <Text style={styles.highlightedText2}>farmers</Text>, 
@@ -15,15 +15,15 @@ const LandingPage2 = ({ navigation }) => {
       <Text style={styles.highlightedText4}>auctions</Text>.
       </Text>
 
-      {/* Using the Button component */}
+    
       <Button
         title="GET STARTED"
-        onPress={() => navigation.navigate('LandingPage3')} // Define where the button navigates
-        style={styles.getStartedButton} // Custom button styles
-        textStyle={styles.getStartedButtonText} // Custom text styles
+        onPress={() => navigation.navigate('LandingPage3')} 
+        style={styles.getStartedButton} 
+        textStyle={styles.getStartedButtonText} 
       />
 
-      {/* Dot indicator (custom styling) */}
+      
       <View style={styles.dotIndicator}>
         <View style={styles.dot} />
         <View style={[styles.dot, styles.activeDot]} />
@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
   },
   tagline: {
     fontSize: 16,
-    fontWeight: 'bold', // Entire tagline is bold
+    fontWeight: 'bold', 
     color: '#333',
     marginVertical: 20,
     textAlign: 'center',
@@ -58,26 +58,26 @@ const styles = StyleSheet.create({
     color: '#DFAE47', 
   },
   highlightedText2: {
-    color: '#335441', // Specific color for "farmers" and "auctions"
+    color: '#335441', 
   },
   highlightedText3: {
-    color: '#DFAE47', // Specific color for "farmers" and "auctions"
+    color: '#DFAE47', 
   },
   highlightedText4: {
-    color: '#335441', // Specific color for "farmers" and "auctions"
+    color: '#335441', 
   },
   getStartedButton: {
     marginTop: 20,
     width: '80%',
-    backgroundColor: '#335441', // Custom button background
+    backgroundColor: '#335441', 
     paddingVertical: 8,
-    borderRadius: 12, // Rounded corners
+    borderRadius: 12, 
     elevation: 2,
     top: 100,
   },
   getStartedButtonText: {
-    fontSize: 18, // Larger text size
-    color: '#FFF', // White text
+    fontSize: 18, 
+    color: '#FFF', 
     fontWeight: 'bold',
   },
   dotIndicator: {
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     left: 80,
   },
   activeDot: {
-    backgroundColor: '#405e40', // Dark green for active dot
+    backgroundColor: '#405e40', 
   },
 });
 

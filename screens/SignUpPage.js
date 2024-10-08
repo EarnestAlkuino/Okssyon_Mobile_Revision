@@ -32,7 +32,7 @@ const SignupPage = ({ navigation }) => {
         secureTextEntry
       />
 
-      {/* Signup Button */}
+
       <Button
         title="Sign Up"
         style={styles.signupButton}
@@ -40,7 +40,7 @@ const SignupPage = ({ navigation }) => {
         onPress={() => navigation.navigate('VerifyPage')} 
       />
 
-      {/* Already have an account text */}
+
       <View style={styles.loginRedirect}>
         <Text style={styles.loginPrompt}>Already have an account?</Text>
         <Button

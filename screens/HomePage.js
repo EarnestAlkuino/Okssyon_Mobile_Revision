@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
 
-// Data for the auction categories
+
 const auctionCategories = [
   { id: '1', title: 'Cattle Auctions', icon: require('../assets/cattle.png') },
   { id: '2', title: 'Horse Auctions', icon: require('../assets/horse.png') },
@@ -12,11 +12,11 @@ const auctionCategories = [
 ];
 
 const HomePage = ({ navigation }) => {
-  // Render each auction category
+  
   const renderCategoryItem = ({ item }) => (
     <TouchableOpacity
       style={styles.categoryContainer}
-      onPress={() => navigation.navigate('AuctionPage', { category: item.title })}  // Navigate to Auction Page with selected category
+      onPress={() => navigation.navigate('AuctionPage', { category: item.title })} 
     >
       <Image source={item.icon} style={styles.categoryIcon} />
       <Text style={styles.categoryTitle}>{item.title}</Text>
@@ -63,12 +63,12 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f0f0f0',  // Background color for the search container
-    borderRadius: 10,            // Rounded corners
-    padding: 10,                 // Padding inside the container
-    marginBottom: 20,            // Space below the search container
-    width: '110%',               // Set the width to 90% of the screen
-    height: 38,                  // Adjust the height to make it taller or shorter
+    backgroundColor: '#f0f0f0',  
+    borderRadius: 10,           
+    padding: 10,                 
+    marginBottom: 20,            
+    width: '110%',               
+    height: 38,                  
     alignSelf: 'center',
   },
   searchIcon: {
@@ -92,14 +92,14 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   categoryIcon: {
-    width: 100, // Set a fixed width for images to keep them uniform
-    height: 100, // Set a fixed height for the images
-    resizeMode: 'contain',  // Make sure the image scales correctly
-    marginBottom: 2,  // Spacing between image and text
+    width: 100, 
+    height: 100, 
+    resizeMode: 'contain',  
+    marginBottom: 2,  
   },
   categoryTitle: {
     fontSize: 14,
-    color: '#405e40',  // Dark green text
+    color: '#405e40',  
     textAlign: 'center',
     fontWeight: 'bold',
   },

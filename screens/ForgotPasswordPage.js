@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/Ionicons'; 
+import Icon from 'react-native-vector-icons/Ionicons';  // Importing the Icon library
 
 const ForgotPasswordPage = () => {
   const navigation = useNavigation();
@@ -15,7 +15,7 @@ const ForgotPasswordPage = () => {
 
       {/* Lock Icon */}
       <Image 
-        source={require('../assets/forgot.png')}  // Replace with your image path
+        source={require('../assets/forgot.png')} 
         style={styles.lockIcon} 
       />
 
@@ -81,8 +81,8 @@ const styles = StyleSheet.create({
     left: 20,
     width: 40,
     height: 40,
-    borderRadius: 20,  // Making it round
-    backgroundColor: '#335441',  // Button background color
+    borderRadius: 20,  
+    backgroundColor: '#335441',  
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,

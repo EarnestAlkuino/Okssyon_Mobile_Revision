@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Image, StyleSheet } from 'react-native';
-import Button from '../Components/Button'; // Import the reusable button component
+import Button from '../Components/Button'; 
 
 const LandingPage3 = ({ navigation }) => {
   return (
@@ -11,17 +11,17 @@ const LandingPage3 = ({ navigation }) => {
       {/* Login Button */}
       <Button
         title="Login"
-        onPress={() => navigation.navigate('LoginPage')} // This directs to the LoginPage
-        style={styles.loginButton} // Customize the button style
-        textStyle={styles.loginButtonText} // Customize the text style
+        onPress={() => navigation.navigate('LoginPage')} 
+        style={styles.loginButton} 
+        textStyle={styles.loginButtonText} 
       />
 
       {/* Signup Button */}
       <Button
         title="Sign Up"
-        onPress={() => navigation.navigate('SignUpPage')} // Assuming there is a SignupPage
-        style={styles.signupButton} // Border only, transparent background
-        textStyle={styles.signupButtonText} // Customize the text color to dark green
+        onPress={() => navigation.navigate('SignUpPage')} 
+        style={styles.signupButton} 
+        textStyle={styles.signupButtonText} 
       />
     </View>
   );
@@ -42,26 +42,26 @@ const styles = StyleSheet.create({
   },
   loginButton: {
     width: '80%',
-    backgroundColor: '#405e40', // Dark green background for login button
+    backgroundColor: '#405e40', 
     paddingVertical: 10,
     borderRadius: 10,
     marginBottom: 20,
   },
   loginButtonText: {
-    color: '#fff', // White text for login button
+    color: '#fff', 
     fontWeight: 'bold',
   },
   signupButton: {
     width: '80%',
-    backgroundColor: 'transparent', // Transparent background for signup button
+    backgroundColor: 'transparent', 
     paddingVertical: 10,
     borderRadius: 10,
-    borderColor: '#405e40', // Dark green border
+    borderColor: '#405e40', 
     borderWidth: 2,
     marginBottom: 20,
   },
   signupButtonText: {
-    color: '#405e40', // Dark green text for signup button
+    color: '#405e40', 
     fontWeight: 'bold',
   },
 });

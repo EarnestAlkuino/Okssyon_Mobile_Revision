@@ -23,7 +23,7 @@ const AppNavigator = () => {
         <Stack.Screen
           name="LandingPage"
           component={LandingPage}
-          options={{ headerShown: false }}  // Hides the header
+          options={{ headerShown: false }} 
         />
         <Stack.Screen
           name="LandingPage2"
@@ -51,14 +51,14 @@ const AppNavigator = () => {
           options={{ headerShown: false }}
         />
         <Stack.Screen
-          name="AuctionPage"   // Adding the AuctionPage screen here
+          name="AuctionPage"   
           component={AuctionPage}
-          options={{ headerShown: false }}   // You can choose to show/hide the header
+          options={{ headerShown: false }}   
         />
         <Stack.Screen
-          name="ForgotPasswordPage"   // Adding the AuctionPage screen here
+          name="ForgotPasswordPage"   
           component={ForgotPasswordPage}
-          options={{ headerShown: false }}   // You can choose to show/hide the header
+          options={{ headerShown: false }}   
         />
           <Stack.Screen
           name="ConfirmForgotPass"   // Adding the AuctionPage screen here
@@ -67,7 +67,7 @@ const AppNavigator = () => {
         />
         <Stack.Screen
           name="MainTabs"
-          component={BottomTabNavigator}  // Bottom tab navigator after login or signup
+          component={BottomTabNavigator}  
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

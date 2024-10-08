@@ -153,15 +153,15 @@ const styles = StyleSheet.create({
   uploadButton: {
     width: '100%',
     height: 200,
-    backgroundColor: '#888', // Gray background for the button
+    backgroundColor: '#888',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
-    marginBottom: 20, // Space between fields
+    marginBottom: 20, 
   },
   uploadText: {
     fontSize: 16,
-    color: '#fff', // White text inside the button
+    color: '#335441', 
   },
   imagePreview: {
     width: '100%',
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 5,
     paddingHorizontal: 10,
-    marginBottom: 15, // Space between fields
+    marginBottom: 15, 
   },
   picker: {
     width: '100%',
@@ -204,10 +204,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: 40,
-    marginBottom: 15, // Space between fields
+    marginBottom: 15, 
   },
   outline: {
-    borderColor: '#335441', // Outline for "Proof of Ownership" and "Vet Certificate"
+    borderColor: '#335441', 
     borderWidth: 1,
     borderRadius: 5,
     padding: 5,
