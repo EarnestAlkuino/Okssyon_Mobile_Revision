@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons'; // For icons
+import { StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const NotificationPage = () => {
   const [activeTab, setActiveTab] = useState('Recent');
@@ -10,7 +14,20 @@ const NotificationPage = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Notification</Text>
+      {/* Gradient Header */}
+      <LinearGradient
+        colors={['#257446', '#234D35']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <TouchableOpacity>
+          <Ionicons name="arrow-back" size={24} color="white" />
+        </TouchableOpacity>
+        <Text style={styles.title}>Notification</Text>
+      </LinearGradient>
+
+      {/* Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[
@@ -36,6 +53,7 @@ const NotificationPage = () => {
         </TouchableOpacity>
       </View>
 
+      {/* Content */}
       <View style={styles.contentContainer}>
         <Text style={styles.contentText}>
           {activeTab === 'Recent' ? 'Showing Recent Notifications' : 'Showing All Notifications'}
@@ -48,35 +66,49 @@ const NotificationPage = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5', // Light background
-    padding: 16,
+    backgroundColor: '#F5F5F5',
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 50,
+    paddingTop: StatusBar.currentHeight || 30, // Ensures the gradient covers the status bar area
+  },
+
   title: {
-    fontSize: 24,
+    color: 'white',
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 20,
+    top: 20,
+    left: -100,
   },
   tabContainer: {
     flexDirection: 'row',
-    marginBottom: 20,
-    borderRadius: 4,
-    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#E0E0E0',
+    margin: 15,
+    borderRadius: 25, // Rounded corners for tab container
+    padding: 5, // Space around the tabs
   },
   tab: {
     flex: 1,
     paddingVertical: 10,
     alignItems: 'center',
+    borderRadius: 25, // Rounded corners for individual tabs
   },
   activeTab: {
-    backgroundColor: '#008CBA', // Active tab color
+    backgroundColor: '#FFFFFF', // Active tab color
+    borderWidth: 1,
+    borderColor: '#257446', // Green border for active tab
   },
   inactiveTab: {
-    backgroundColor: '#E0E0E0', // Inactive tab color
+    backgroundColor: 'transparent', // No background for inactive tabs
   },
   activeTabText: {
-    color: '#FFFFFF',
+    color: '#257446',
     fontWeight: 'bold',
   },
   inactiveTabText: {
@@ -85,9 +117,11 @@ const styles = StyleSheet.create({
   contentContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   contentText: {
     fontSize: 18,
+    color: '#000',
   },
 });
 

@@ -141,4 +141,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AuctionPage;
+export default AuctionPage;1

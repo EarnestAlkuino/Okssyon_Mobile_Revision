@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/Ionicons';  // Importing the Icon library
+import Icon from 'react-native-vector-icons/Ionicons'; 
 
 const ForgotPasswordPage = () => {
   const navigation = useNavigation();
@@ -55,7 +55,10 @@ const ForgotPasswordPage = () => {
       </View>
 
       {/* Next Button */}
-      <TouchableOpacity style={styles.nextButton}>
+      <TouchableOpacity 
+        style={styles.nextButton} 
+        onPress={() => navigation.navigate('ConfirmForgotPass')}  // Navigate to ConfirmForgotPass
+      >
         <Text style={styles.nextButtonText}>Next</Text>
       </TouchableOpacity>
     </View>

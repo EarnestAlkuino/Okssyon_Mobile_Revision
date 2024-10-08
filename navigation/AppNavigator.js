@@ -10,6 +10,7 @@ import VerifyPage from '../screens/VerifyPage';
 import BottomTabNavigator from '../navigation/BottomTabNavigator';
 import AuctionPage from '../screens/AuctionPage';
 import ForgotPasswordPage from '../screens/ForgotPasswordPage';
+import ConfirmForgotPass from '../screens/ConfirmForgotPass';
 
 
 
@@ -57,6 +58,11 @@ const AppNavigator = () => {
         <Stack.Screen
           name="ForgotPasswordPage"   // Adding the AuctionPage screen here
           component={ForgotPasswordPage}
+          options={{ headerShown: false }}   // You can choose to show/hide the header
+        />
+          <Stack.Screen
+          name="ConfirmForgotPass"   // Adding the AuctionPage screen here
+          component={ConfirmForgotPass}
           options={{ headerShown: false }}   // You can choose to show/hide the header
         />
         <Stack.Screen
