@@ -1,6 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Icon from 'react-native-vector-icons/Ionicons'; // Import icons from the vector-icons library
+import Icon from 'react-native-vector-icons/Ionicons';
 import HomePage from '../screens/HomePage'; 
 import MessagePage from '../screens/MessagePage'; 
 import PostPage from '../screens/PostPage';
@@ -17,7 +17,7 @@ const BottomTabNavigator = () => {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused }) => {
           let iconName;
-          let iconStyle = { fontSize: 28, color: focused ? '#335441' : '#A0A0A0' }; // Adjust colors for other icons
+          let iconStyle = { fontSize: 28, color: focused ? '#335441' : '#A0A0A0' }; 
 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
@@ -25,12 +25,12 @@ const BottomTabNavigator = () => {
             iconName = focused ? 'chatbubble' : 'chatbubble-outline';
           } else if (route.name === 'Post') {
             iconName = focused ? 'add-circle' : 'add-circle-outline';
-            // Special styling for the middle Post button to make it stand out with 335441 color
+          
             iconStyle = {
-              fontSize: 45,  // Adjust icon size to make it balanced
-              color: '#fff',  // White icon color
-              backgroundColor: '#335441', // Use the required green color
-              borderRadius: 35,  // Circular button shape
+              fontSize: 45,  
+              color: '#fff',  
+              backgroundColor: '#335441', 
+              borderRadius: 35,  
               padding: 10,
               shadowColor: '#000',
               shadowOpacity: 0.2,
@@ -38,7 +38,7 @@ const BottomTabNavigator = () => {
               shadowRadius: 8,
               elevation: 8,
               position: 'absolute',
-              bottom: 20,  // Slightly elevated above other icons
+              bottom: 20,  
             };
           } else if (route.name === 'Notification') {
             iconName = focused ? 'notifications' : 'notifications-outline';
@@ -48,13 +48,13 @@ const BottomTabNavigator = () => {
 
           return <Icon name={iconName} style={iconStyle} />;
         },
-        tabBarShowLabel: false, // Hide labels for cleaner look
+        tabBarShowLabel: false, 
         tabBarStyle: {
           height: 70,
           backgroundColor: '#e5f4e3',
           paddingBottom: 10,
           paddingTop: 12,
-          borderRadius: 25,  // Rounded bottom navigation bar
+          borderRadius: 25,  
           borderTopWidth: 0,
           shadowColor: '#000',
           shadowOpacity: 0.2,
@@ -62,9 +62,9 @@ const BottomTabNavigator = () => {
           shadowRadius: 10,
           elevation: 12,
           position: 'absolute',
-          marginHorizontal: -5,  // Side margins to give floating effect
+          marginHorizontal: -5,  
         },
-        headerShown: false, // Remove header for all screens
+        headerShown: false, 
       })}
     >
       <Tab.Screen name="Home" component={HomePage} />
@@ -73,11 +73,10 @@ const BottomTabNavigator = () => {
       <Tab.Screen name="Notification" component={NotificationPage} />
       <Tab.Screen name="Profile" component={ProfilePage} />
       
-      {/* Hidden Auction Stack to keep bottom tabs visible without highlighting */}
       <Tab.Screen 
         name="AuctionStack" 
         component={AuctionStackNavigator} 
-        options={{ tabBarButton: () => null }}  // Hide tab button for this stack
+        options={{ tabBarButton: () => null }}  
       />
     </Tab.Navigator>
   );

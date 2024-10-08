@@ -23,7 +23,7 @@ const PostPageStack = () => {
           headerStyle: {
             backgroundColor: '#e5f4e3',
           },
-          headerTitle: '', // No title
+          headerTitle: '',
         }}
       />
     </Stack.Navigator>

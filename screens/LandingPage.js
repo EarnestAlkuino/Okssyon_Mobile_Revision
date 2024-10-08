@@ -54,6 +54,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   activeDot: {
-    backgroundColor: '#405e40', // Active dot color (dark green)
+    backgroundColor: '#405e40', 
   },
 });

@@ -1,7 +1,7 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import HomePage from '../screens/HomePage';  // The main tab
-import AuctionPage from '../screens/AuctionPage';  // The category page
+import HomePage from '../screens/HomePage';  
+import AuctionPage from '../screens/AuctionPage';  
 
 const Stack = createStackNavigator();
 

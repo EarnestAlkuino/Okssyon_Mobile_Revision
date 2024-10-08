@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TextInput, Image, StyleSheet } from 'react-native';
-import Button from '../Components/Button'; // Reusable button component
+import Button from '../Components/Button'; 
 
 const LoginPage = ({ navigation }) => {
   return (
@@ -38,10 +38,10 @@ const LoginPage = ({ navigation }) => {
         title="Log In"
         style={styles.loginButton}
         textStyle={styles.loginButtonText}
-        onPress={() => navigation.navigate('MainTabs')} // Navigating to HomePage
+        onPress={() => navigation.navigate('MainTabs')} 
       />
 
-      {/* OR Text */}
+
       <Text style={styles.orText}>OR</Text>
 
       {/* Social Login */}
@@ -84,13 +84,13 @@ const styles = StyleSheet.create({
     fontSize: 30,
     left: -80,
     fontWeight: 'bold',
-    color: '#335441', // Dark green text
+    color: '#335441', 
     marginBottom: 5,
   },
   subText: {
     fontSize: 16,
     left: -80,
-    color: '#808080', // Light grey text
+    color: '#808080', 
     marginBottom: 30,
   },
   inputContainer: {
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   input: {
     height: 45,
     borderWidth: 1,
-    borderColor: '#335441', // Dark green border color
+    borderColor: '#335441', 
     borderRadius: 10,
     paddingHorizontal: 10,
     marginBottom: 15,
@@ -108,11 +108,11 @@ const styles = StyleSheet.create({
   forgotPasswordText: {
     top: -20,
     alignSelf: 'flex-end',
-    color: '#808080', // Light grey text
+    color: '#808080', 
   },
   loginButton: {
     width: '100%',
-    backgroundColor: '#335441', // Dark green background
+    backgroundColor: '#335441', 
     paddingVertical: 10,
     borderRadius: 10,
     marginBottom: 20,
