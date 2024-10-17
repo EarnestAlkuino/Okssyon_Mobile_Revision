@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, ImageBackground } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import CattleIcon from '../assets/Cattle1.svg';
 import HorseIcon from '../assets/Horse1.svg';
@@ -15,7 +15,7 @@ const HomePage = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [announcement, setAnnouncement] = useState('Upcoming Auction!');
   const [announcementDate, setAnnouncementDate] = useState('October 20, 2024');
-  
+
   useEffect(() => {
     const fetchAdminData = () => {
       setAnnouncement('Biggest Auction Event!');
@@ -36,13 +36,14 @@ const HomePage = ({ navigation }) => {
 
   const renderCategoryItem = ({ item }) => {
     const IconComponent = item.Icon;
+
     return (
       <TouchableOpacity
         style={styles.iconButton}
         onPress={() => navigation.navigate('AuctionPage', { category: item.title })}
       >
         <View style={styles.iconContainer}>
-          <IconComponent width={80} height={80} fill="#405e40" />
+          <IconComponent width={88} height={88} fill="#ffffff" />
         </View>
       </TouchableOpacity>
     );
@@ -66,30 +67,35 @@ const HomePage = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      <ImageBackground source={require('../assets/HEADER1.png')} style={styles.header}>
-        <View style={styles.announcementOverlay}>
-          <Text style={styles.headerText}>{announcement}</Text>
-          <Text style={styles.headerDate}>Date: {announcementDate}</Text>
-        </View>
-      </ImageBackground>
+      {/* Announcement Banner with Centered Text */}
+      <LinearGradient 
+        colors={['rgba(185, 211, 112, 0.8)', 'rgba(113, 186, 144, 0.8)']} 
+        style={styles.announcementBanner}
+      >
+        <Text style={styles.announcementText}>{announcement}</Text>
+        <Text style={styles.announcementDate}>{announcementDate}</Text>
+      </LinearGradient>
 
-      <LinearGradient colors={['#B9D370', '#71BA90']} style={styles.gradientButton}>
-        <TouchableOpacity onPress={() => navigation.navigate('PnsPage')}>
+      <LinearGradient colors={['#257446', '#234D35']} style={styles.gradientButton}>
+        <TouchableOpacity style={styles.fullWidthButton} onPress={() => navigation.navigate('PnsPage')}>
           <Text style={styles.gradientButtonText}>View latest PNS</Text>
         </TouchableOpacity>
       </LinearGradient>
+
+      {/* Livestock Selection Label */}
+      <Text style={styles.selectionLabel}>Livestock Selection</Text>
 
       <FlatList
         data={auctionCategories}
         renderItem={renderCategoryItem}
         keyExtractor={(item) => item.id}
-        numColumns={2}
-        columnWrapperStyle={styles.columnWrapper}
+        numColumns={2} // Set to 2 for a 2x3 layout
+        columnWrapperStyle={styles.columnWrapper} // Adjusts spacing between items
         contentContainerStyle={styles.grid}
       />
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -111,73 +117,72 @@ const styles = StyleSheet.create({
   searchIcon: {
     padding: 5,
   },
-  header: {
-    width: '100%',
-    height: 150,
-    justifyContent: 'center',
+  announcementBanner: {
+    borderRadius: 10,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    paddingVertical: 38,
+    paddingHorizontal: 15,
     alignItems: 'center',
-    paddingVertical: 20,
-    aspectRatio: 5 / 3,
-    borderRadius: 20,
   },
-  announcementOverlay: {
-    alignItems: 'center',
-    position: 'absolute',
-    bottom: 20,
-  },
-  headerText: {
-    fontSize: 24,
-    color: '#234D35',
+  announcementText: { 
+    fontSize: 22,
+    color: '#405e40',
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 5,
   },
-  headerDate: {
-    fontSize: 18,
-    color: '#234D35',
+  announcementDate: {
+    fontSize: 16,
+    color: '#405e40',
     textAlign: 'center',
-    marginBottom: 30,
   },
   gradientButton: {
     alignItems: 'center',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 20,
-    marginTop: 20,
-    marginHorizontal: 22,
+    borderRadius: 5,
+    width: '90%',
+    alignSelf: 'center',
+    marginBottom: 10,
+  },
+  fullWidthButton: {
+    width: '100%',
+    paddingVertical: 10,
+    alignItems: 'center',
   },
   gradientButtonText: {
     fontSize: 16,
-    color: '#335441',
+    color: '#ffffff',
     fontWeight: 'bold',
+  },
+  selectionLabel: {
+    textAlign: 'left',
+    fontSize: 16,
+    color: '#405e40',
+    fontWeight: 'bold',
+    marginLeft: 20,
+    marginBottom: 20,
   },
   iconButton: {
     flex: 1,
     alignItems: 'center',
     marginVertical: 10,
+    width: '45%', // Set width to ensure items fit properly in two columns
   },
   iconContainer: {
     width: 120,
     height: 100,
-    backgroundColor: '#F0F0F0',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 15,
-    marginBottom: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    borderRadius: 5,
+    backgroundColor: '#FFFFFF',
   },
-
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   columnWrapper: {
-    justifyContent: 'space-around',
+    justifyContent: 'space-between', // Ensures even spacing for 2 items
     marginBottom: 15,
   },
   grid: {
