@@ -4,7 +4,7 @@ import Button from '../Components/Button';
 import supabase from '../supabaseClient'; // Import the Supabase client
 import CryptoJS from 'crypto-js'; // Import crypto-js for hashing
 
-const SignupPage = ({ navigation }) => {
+const LoginPage = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -175,4 +175,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SignupPage;
+export default LoginPage;
