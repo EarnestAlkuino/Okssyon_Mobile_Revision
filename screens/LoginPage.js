@@ -1,37 +1,37 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, Image, StyleSheet } from 'react-native';
-import Button from '../Components/Button';
-import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
-import * as SplashScreen from 'expo-splash-screen';
+import React, { useState } from 'react';
+import { View, Text, TextInput, Image, StyleSheet, Alert } from 'react-native';
+import Button from '../Components/Button'; 
+import supabase from '../supabaseClient'; // Import the Supabase client
 
-const LoginPage = ({ navigation }) => {
-  const [fontsLoaded] = useFonts({
-    Poppins_400Regular,
-    Poppins_500Medium,
-    Poppins_600SemiBold,
-  });
+const SignupPage = ({ navigation }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  const [isLoading, setIsLoading] = useState(true);
+  // Function to handle saving user data and navigating to HomePage
+  const handleSignup = async () => {
+    try {
+      // Insert email and password into the user_account table
+      const { data, error } = await supabase
+        .from('user_account')
+        .insert([
+          { 
+            email: email.toLowerCase(), // Always store emails in lowercase
+            password: password,          // Store password (hash it before saving in production)
+          }
+        ]);
 
-  useEffect(() => {
-    const prepare = async () => {
-      // Prevent the splash screen from auto-hiding
-      await SplashScreen.preventAutoHideAsync();
-
-      // Simulate loading time (for example, fetching data)
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Once loading is done, hide the splash screen
-      await SplashScreen.hideAsync();
-      setIsLoading(false);
-    };
-
-    prepare();
-  }, []);
-
-  if (!fontsLoaded || isLoading) {
-    return null; // You can also return a loading indicator here
-  }
+      if (error) {
+        Alert.alert('Error', error.message); // Handle error if insertion fails
+      } else {
+        Alert.alert('Success', 'Account created successfully');
+        // Navigate to HomePage.js after success
+        navigation.navigate('MainTabs');  // Navigate to HomePage on successful signup
+      }
+    } catch (err) {
+      console.error('Signup error:', err);
+      Alert.alert('Error', 'An unexpected error occurred');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -40,7 +40,7 @@ const LoginPage = ({ navigation }) => {
 
       {/* Welcome Text */}
       <Text style={styles.welcomeText}>Welcome!</Text>
-      <Text style={styles.subText}>Sign in to continue</Text>
+      <Text style={styles.subText}>Sign up to get started</Text>
 
       {/* Input fields */}
       <View style={styles.inputContainer}>
@@ -48,27 +48,25 @@ const LoginPage = ({ navigation }) => {
           style={styles.input}
           placeholder="EMAIL"
           placeholderTextColor="#808080"
+          value={email}
+          onChangeText={(text) => setEmail(text)}
         />
         <TextInput
           style={styles.input}
           placeholder="PASSWORD"
           placeholderTextColor="#808080"
           secureTextEntry
-        />
-        <Button
-          title="Forgot Password?"
-          onPress={() => navigation.navigate('ForgotPasswordPage')}
-          style={{ backgroundColor: 'transparent' }}
-          textStyle={styles.forgotPasswordText}
+          value={password}
+          onChangeText={(text) => setPassword(text)}
         />
       </View>
 
-      {/* Login Button */}
+      {/* Signup Button */}
       <Button
-        title="Log In"
-        style={styles.loginButton}
-        textStyle={styles.loginButtonText}
-        onPress={() => navigation.navigate('MainTabs')}
+        title="Sign Up"
+        style={styles.signupButton}
+        textStyle={styles.signupButtonText}
+        onPress={handleSignup}  // Call the handleSignup function
       />
 
       <Text style={styles.orText}>OR</Text>
@@ -80,12 +78,12 @@ const LoginPage = ({ navigation }) => {
         <Image source={require('../assets/gg.png')} style={styles.socialIcon} />
       </View>
 
-      {/* Sign Up Text */}
+      {/* Already have an account */}
       <View style={styles.signUpContainer}>
-        <Text style={styles.signUpPrompt}>Don't have an account?</Text>
+        <Text style={styles.signUpPrompt}>Already have an account?</Text>
         <Button
-          title="Sign Up"
-          onPress={() => navigation.navigate('SignupPage')}
+          title="Log In"
+          onPress={() => navigation.navigate('LoginPage')}
           style={{ backgroundColor: 'transparent' }}
           textStyle={styles.signUpText}
         />
@@ -105,24 +103,19 @@ const styles = StyleSheet.create({
   logo: {
     width: 140,
     height: 80,
-    left: 100,
     resizeMode: 'contain',
     marginBottom: 20,
   },
   welcomeText: {
     fontSize: 30,
-    left: -80,
     fontWeight: 'bold',
-    color: '#335441',
+    color: '#335441', 
     marginBottom: 5,
-    fontFamily: 'Poppins_600SemiBold',
   },
   subText: {
     fontSize: 16,
-    left: -80,
-    color: '#808080',
+    color: '#808080', 
     marginBottom: 30,
-    fontFamily: 'Poppins_400Regular',
   },
   inputContainer: {
     width: '100%',
@@ -131,41 +124,30 @@ const styles = StyleSheet.create({
   input: {
     height: 45,
     borderWidth: 1,
-    borderColor: '#335441',
+    borderColor: '#335441', 
     borderRadius: 10,
     paddingHorizontal: 10,
     marginBottom: 15,
-    fontFamily: 'Poppins_400Regular',
   },
-  forgotPasswordText: {
-    top: -20,
-    alignSelf: 'flex-end',
-    color: '#808080',
-    fontFamily: 'Poppins_400Regular',
-  },
-  loginButton: {
+  signupButton: {
     width: '100%',
-    backgroundColor: '#335441',
+    backgroundColor: '#335441', 
     paddingVertical: 10,
     borderRadius: 10,
     marginBottom: 20,
     alignItems: 'center',
-    top: -20,
   },
-  loginButtonText: {
+  signupButtonText: {
     color: '#fff',
     fontSize: 15,
-    fontFamily: 'Poppins_500Medium',
+    fontWeight: 'bold',
   },
   orText: {
-    top: -40,
     fontSize: 16,
     color: '#808080',
     marginVertical: 20,
-    fontFamily: 'Poppins_400Regular',
   },
   socialLoginContainer: {
-    top: -45,
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '80%',
@@ -177,20 +159,16 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   signUpContainer: {
-    top: -20,
     flexDirection: 'row',
     marginTop: 20,
   },
   signUpPrompt: {
     color: '#808080',
-    fontFamily: 'Poppins_400Regular',
   },
   signUpText: {
     color: '#335441',
-    top: -15,
     fontWeight: 'bold',
-    fontFamily: 'Poppins_600SemiBold',
   },
 });
 
-export default LoginPage;
+export default SignupPage;
