@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Image, StyleSheet, Alert } from 'react-native';
 import Button from '../Components/Button'; 
 import supabase from '../supabaseClient'; // Import the Supabase client
+import CryptoJS from 'crypto-js'; // Import crypto-js for hashing
 
 const SignupPage = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -10,13 +11,16 @@ const SignupPage = ({ navigation }) => {
   // Function to handle saving user data and navigating to HomePage
   const handleSignup = async () => {
     try {
-      // Insert email and password into the user_account table
+      // Hash the password using SHA256
+      const hashedPassword = CryptoJS.SHA256(password).toString(); // Hash password
+
+      // Insert email and hashed password into the user_account table
       const { data, error } = await supabase
         .from('user_account')
         .insert([
           { 
             email: email.toLowerCase(), // Always store emails in lowercase
-            password: password,          // Store password (hash it before saving in production)
+            password: hashedPassword,   // Store hashed password
           }
         ]);
 
