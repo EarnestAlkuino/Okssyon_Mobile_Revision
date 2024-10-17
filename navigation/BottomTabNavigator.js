@@ -1,12 +1,13 @@
 import React from 'react';
+import { Text } from 'react-native'; // Import Text from react-native
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
-import HomePage from '../screens/HomePage'; 
-import MessagePage from '../screens/MessagePage'; 
+import HomePage from '../screens/HomePage';
+import MessagePage from '../screens/MessagePage';
 import PostPage from '../screens/PostPage';
 import NotificationPage from '../screens/NotificationPage';
 import ProfilePage from '../screens/ProfilePage';
-import AuctionStackNavigator from './AuctionStackNavigator';
 
 const Tab = createBottomTabNavigator();
 
@@ -17,9 +18,10 @@ const BottomTabNavigator = () => {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused }) => {
           let iconName;
-<<<<<<< HEAD
-          let iconStyle = { fontSize: 28, color: focused ? '#335441' : '#A0A0A0' };
+          let iconSize = 28;  // Keep all icons the same size
+          let iconColor = focused ? '#fff' : '#A0A0A0';
 
+          // Define icons based on the route name
           switch (route.name) {
             case 'Home':
               iconName = focused ? 'home' : 'home-outline';
@@ -36,54 +38,42 @@ const BottomTabNavigator = () => {
             case 'Profile':
               iconName = focused ? 'person' : 'person-outline';
               break;
-=======
-          let iconStyle = { fontSize: 28, color: focused ? '#335441' : '#A0A0A0' }; 
-
-          if (route.name === 'Home') {
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Message') {
-            iconName = focused ? 'chatbubble' : 'chatbubble-outline';
-          } else if (route.name === 'Post') {
-            iconName = focused ? 'add-circle' : 'add-circle-outline';
-          
-            iconStyle = {
-              fontSize: 45,  
-              color: '#fff',  
-              backgroundColor: '#335441', 
-              borderRadius: 35,  
-              padding: 10,
-              shadowColor: '#000',
-              shadowOpacity: 0.2,
-              shadowOffset: { width: 0, height: 5 },
-              shadowRadius: 8,
-              elevation: 8,
-              position: 'absolute',
-              bottom: 20,  
-            };
-          } else if (route.name === 'Notification') {
-            iconName = focused ? 'notifications' : 'notifications-outline';
-          } else if (route.name === 'Profile') {
-            iconName = focused ? 'person' : 'person-outline';
->>>>>>> 1fb3f107bc2d3675ac2cca8ee3819157d8813e42
+            default:
+              iconName = 'circle-outline';
           }
 
-          return <Icon name={iconName} style={iconStyle} />;
+          // Conditional rendering for highlighted icon with gradient background
+          if (focused) {
+            return (
+              <LinearGradient
+                colors={['#ffba08', '#ff9a76']}
+                style={{
+                  width: iconSize + 18,
+                  height: iconSize + 18,
+                  borderRadius: (iconSize + 18) / 2,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Icon name={iconName} size={iconSize} color={iconColor} />
+              </LinearGradient>
+            );
+          } else {
+            return <Icon name={iconName} size={iconSize} color={iconColor} />;
+          }
         },
-<<<<<<< HEAD
-        tabBarShowLabel: false, // Hide text labels
-=======
-        tabBarShowLabel: false, 
->>>>>>> 1fb3f107bc2d3675ac2cca8ee3819157d8813e42
+        tabBarLabel: ({ focused }) => (
+          <Text style={{ color: focused ? '#ff9a76' : '#A0A0A0', fontSize: 12 }}>
+            {route.name}
+          </Text>
+        ),
+        tabBarShowLabel: true,
         tabBarStyle: {
-          height: 70,
+          height: 85,
           backgroundColor: '#e5f4e3',
           paddingBottom: 10,
-          paddingTop: 12,
-<<<<<<< HEAD
+          paddingTop: 10,
           borderRadius: 25,
-=======
-          borderRadius: 25,  
->>>>>>> 1fb3f107bc2d3675ac2cca8ee3819157d8813e42
           borderTopWidth: 0,
           shadowColor: '#000',
           shadowOpacity: 0.1,
@@ -91,15 +81,8 @@ const BottomTabNavigator = () => {
           shadowRadius: 5,
           elevation: 5,
           position: 'absolute',
-<<<<<<< HEAD
-          marginHorizontal: -5,
         },
         headerShown: false,
-=======
-          marginHorizontal: -5,  
-        },
-        headerShown: false, 
->>>>>>> 1fb3f107bc2d3675ac2cca8ee3819157d8813e42
       })}
     >
       <Tab.Screen name="Home" component={HomePage} />
@@ -107,15 +90,6 @@ const BottomTabNavigator = () => {
       <Tab.Screen name="Post" component={PostPage} />
       <Tab.Screen name="Notification" component={NotificationPage} />
       <Tab.Screen name="Profile" component={ProfilePage} />
-<<<<<<< HEAD
-=======
-      
->>>>>>> 1fb3f107bc2d3675ac2cca8ee3819157d8813e42
-      <Tab.Screen 
-        name="AuctionStack" 
-        component={AuctionStackNavigator} 
-        options={{ tabBarButton: () => null }}  
-      />
     </Tab.Navigator>
   );
 };

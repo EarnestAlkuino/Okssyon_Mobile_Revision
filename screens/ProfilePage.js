@@ -1,145 +1,133 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, StatusBar } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import Header from '../Components/Header';
 
-const ProfilePage = () => {
+const ProfilePage = ({ navigation }) => {
   const [imageUri, setImageUri] = useState(null);
-  const [email, setEmail] = useState('jwonyoung91@gmail.com');
-  const [userId, setUserId] = useState('#234567');
+  const [email, setEmail] = useState('');
+  const [userName, setUserName] = useState('John Doe'); // Default username
+
+  useEffect(() => {
+    // Simulate fetching user data
+    const fetchUserData = () => {
+      setUserName('Jane Doe'); // Replace with dynamic data
+      setEmail('janedoe@example.com'); // Replace with dynamic data
+    };
+
+    fetchUserData();
+  }, []);
 
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (permissionResult.granted === false) {
+    if (!permissionResult.granted) {
       alert('Permission to access camera roll is required!');
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync();
-
     if (!result.canceled) {
       setImageUri(result.assets[0].uri);
+    } else {
+      alert('Image selection was canceled or failed.');
     }
   };
 
   const handleBackPress = () => {
-    alert('Back button pressed!');
+    navigation.goBack();
   };
 
   const handleSettingsPress = () => {
-    alert('Settings button pressed!');
+    navigation.navigate('SettingsPage');
   };
 
   return (
     <View style={styles.container}>
-      {/* Reusing the customizable Header with specific style */}
+      <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
       <Header
         title="Profile"
         onBackPress={handleBackPress}
         onSettingsPress={handleSettingsPress}
-        containerStyle={styles.customHeader} // Custom style for ProfilePage header
       />
 
-      {/* Profile and user information container */}
       <View style={styles.profileContainer}>
-        {/* Profile Picture */}
         <TouchableOpacity onPress={pickImage} style={styles.profilePicContainer}>
           <Image
             source={{ uri: imageUri || 'https://via.placeholder.com/150' }}
             style={styles.profilePic}
           />
         </TouchableOpacity>
-      
-        {/* User Info below the profile picture */}
-        <Text style={styles.userName}>John Doe</Text>
-        <TextInput
-          style={styles.userEmail}
-          value={email}
-          onChangeText={setEmail}
-          editable={false}
-        />
-        <Text style={styles.userId}>{userId}</Text>
 
-        {/* Link to weekly average price */}
-        <TouchableOpacity>
-          <Text style={styles.link}>View new weekly average price</Text>
-        </TouchableOpacity>
-      </View>
+        <Text style={styles.userName}>{userName}</Text>
+        <Text style={styles.userEmail}>{email}</Text>
 
-      {/* Recent Activities Section */}
-      <View style={styles.recentActivities}>
-        <Text style={styles.activitiesTitle}>Recent Activities</Text>
-        <Text style={styles.activitiesText}>No recent activities available.</Text>
+        <View style={styles.recentActivities}>
+          <Text style={styles.activitiesTitle}>Recent Activities</Text>
+          <Text style={styles.activitiesText}>No recent activities available.</Text>
+        </View>
       </View>
     </View>
   );
 };
 
+// Styles definition without Poppins font
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
   },
-  customHeader: {
-    paddingVertical: 100,
-    top: 20, // Adjusted height for ProfilePage header
-  },
   profileContainer: {
     alignItems: 'center',
-    marginTop: -75, // To position the profile picture closer to the header
+    paddingVertical: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+    width: '90%',
+    alignSelf: 'center',
+    marginTop: 20,
   },
   profilePicContainer: {
     borderRadius: 75,
     overflow: 'hidden',
-    borderWidth: 5,
-    borderColor: '#fff', // To create a border around the image
+    borderWidth: 4,
+    borderColor: '#fff',
+    marginBottom: 15,
   },
   profilePic: {
     width: 100,
     height: 100,
   },
   userName: {
-    color: 'black',
+    color: '#405e40',
     fontSize: 24,
     fontWeight: 'bold',
-    marginTop: 2,
+    textAlign: 'center',
+    marginVertical: 5,
   },
   userEmail: {
-    color: 'black',
+    color: '#405e40',
     fontSize: 16,
-    marginBottom: 2,
-  },
-  userId: {
-    color: 'black',
-    fontSize: 16,
+    textAlign: 'center',
     marginBottom: 15,
   },
-  link: {
-    color: 'green',
-    fontSize: 14,
-    marginVertical: 20,
-    textDecorationLine: 'underline',
-   left: 40,// Aligning the link to the left
-    paddingHorizontal: 20,
-    bottom: 20,
-  },
   recentActivities: {
-    marginTop: 10, // Less margin to push container closer to the link
-    padding: 20,
-    backgroundColor: 'white',
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: '#f9f9f9',
     borderRadius: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1.41,
     elevation: 2,
-    width: '90%',
-    alignSelf: 'center',
-    alignItems: 'flex-start', // Align content to the left
+    width: '100%',
+    alignItems: 'flex-start',
   },
   activitiesTitle: {
-    color: 'black',
     fontSize: 18,
     fontWeight: 'bold',
   },

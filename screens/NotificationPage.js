@@ -1,15 +1,25 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons'; // For icons
-import { StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import * as SplashScreen from 'expo-splash-screen';
 
-const NotificationPage = () => {
+const NotificationPage = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState('Recent');
+
+  useEffect(() => {
+    const hideSplashScreen = async () => {
+      await SplashScreen.hideAsync();
+    };
+    hideSplashScreen();
+  }, []);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
+  };
+
+  const handleBackPress = () => {
+    navigation.goBack();
   };
 
   return (
@@ -21,7 +31,7 @@ const NotificationPage = () => {
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
-        <TouchableOpacity>
+        <TouchableOpacity onPress={handleBackPress}>
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.title}>Notification</Text>
@@ -30,10 +40,7 @@ const NotificationPage = () => {
       {/* Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
-          style={[
-            styles.tab,
-            activeTab === 'Recent' ? styles.activeTab : styles.inactiveTab,
-          ]}
+          style={[styles.tab, activeTab === 'Recent' ? styles.activeTab : styles.inactiveTab]}
           onPress={() => handleTabChange('Recent')}
         >
           <Text style={activeTab === 'Recent' ? styles.activeTabText : styles.inactiveTabText}>
@@ -41,10 +48,7 @@ const NotificationPage = () => {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[
-            styles.tab,
-            activeTab === 'All Notifications' ? styles.activeTab : styles.inactiveTab,
-          ]}
+          style={[styles.tab, activeTab === 'All Notifications' ? styles.activeTab : styles.inactiveTab]}
           onPress={() => handleTabChange('All Notifications')}
         >
           <Text style={activeTab === 'All Notifications' ? styles.activeTabText : styles.inactiveTabText}>
@@ -76,13 +80,12 @@ const styles = StyleSheet.create({
     paddingVertical: 50,
     paddingTop: StatusBar.currentHeight || 30, // Ensures the gradient covers the status bar area
   },
-
   title: {
     color: 'white',
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '500',
     top: 20,
-    left: -100,
+    right: 100,
   },
   tabContainer: {
     flexDirection: 'row',
@@ -109,10 +112,11 @@ const styles = StyleSheet.create({
   },
   activeTabText: {
     color: '#257446',
-    fontWeight: 'bold',
+    fontWeight: '600', // Semi-bold
   },
   inactiveTabText: {
     color: '#000000',
+    fontWeight: '400', // Regular
   },
   contentContainer: {
     justifyContent: 'center',

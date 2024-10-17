@@ -1,8 +1,38 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Image, StyleSheet } from 'react-native';
-import Button from '../Components/Button'; 
+import Button from '../Components/Button';
+import { useFonts, Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
+import * as SplashScreen from 'expo-splash-screen';
 
 const LoginPage = ({ navigation }) => {
+  const [fontsLoaded] = useFonts({
+    Poppins_400Regular,
+    Poppins_500Medium,
+    Poppins_600SemiBold,
+  });
+
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const prepare = async () => {
+      // Prevent the splash screen from auto-hiding
+      await SplashScreen.preventAutoHideAsync();
+
+      // Simulate loading time (for example, fetching data)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Once loading is done, hide the splash screen
+      await SplashScreen.hideAsync();
+      setIsLoading(false);
+    };
+
+    prepare();
+  }, []);
+
+  if (!fontsLoaded || isLoading) {
+    return null; // You can also return a loading indicator here
+  }
+
   return (
     <View style={styles.container}>
       {/* Logo */}
@@ -38,9 +68,8 @@ const LoginPage = ({ navigation }) => {
         title="Log In"
         style={styles.loginButton}
         textStyle={styles.loginButtonText}
-        onPress={() => navigation.navigate('MainTabs')} 
+        onPress={() => navigation.navigate('MainTabs')}
       />
-
 
       <Text style={styles.orText}>OR</Text>
 
@@ -84,14 +113,16 @@ const styles = StyleSheet.create({
     fontSize: 30,
     left: -80,
     fontWeight: 'bold',
-    color: '#335441', 
+    color: '#335441',
     marginBottom: 5,
+    fontFamily: 'Poppins_600SemiBold',
   },
   subText: {
     fontSize: 16,
     left: -80,
-    color: '#808080', 
+    color: '#808080',
     marginBottom: 30,
+    fontFamily: 'Poppins_400Regular',
   },
   inputContainer: {
     width: '100%',
@@ -100,19 +131,21 @@ const styles = StyleSheet.create({
   input: {
     height: 45,
     borderWidth: 1,
-    borderColor: '#335441', 
+    borderColor: '#335441',
     borderRadius: 10,
     paddingHorizontal: 10,
     marginBottom: 15,
+    fontFamily: 'Poppins_400Regular',
   },
   forgotPasswordText: {
     top: -20,
     alignSelf: 'flex-end',
-    color: '#808080', 
+    color: '#808080',
+    fontFamily: 'Poppins_400Regular',
   },
   loginButton: {
     width: '100%',
-    backgroundColor: '#335441', 
+    backgroundColor: '#335441',
     paddingVertical: 10,
     borderRadius: 10,
     marginBottom: 20,
@@ -122,13 +155,14 @@ const styles = StyleSheet.create({
   loginButtonText: {
     color: '#fff',
     fontSize: 15,
-    fontWeight: 'bold',
+    fontFamily: 'Poppins_500Medium',
   },
   orText: {
     top: -40,
     fontSize: 16,
     color: '#808080',
     marginVertical: 20,
+    fontFamily: 'Poppins_400Regular',
   },
   socialLoginContainer: {
     top: -45,
@@ -149,11 +183,13 @@ const styles = StyleSheet.create({
   },
   signUpPrompt: {
     color: '#808080',
+    fontFamily: 'Poppins_400Regular',
   },
   signUpText: {
     color: '#335441',
     top: -15,
     fontWeight: 'bold',
+    fontFamily: 'Poppins_600SemiBold',
   },
 });
 
