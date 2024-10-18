@@ -1,42 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Image, StyleSheet, Alert } from 'react-native';
-import Button from '../Components/Button'; 
-import supabase from '../supabaseClient'; // Import the Supabase client
-import CryptoJS from 'crypto-js'; // Import crypto-js for hashing
+import React from 'react';
+import { View, Text, TextInput, Image, StyleSheet } from 'react-native';
+import Button from '../Components/Button'; // Reusable button component
 
 const LoginPage = ({ navigation }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-
-  // Function to handle saving user data and navigating to HomePage
-  const handleSignup = async () => {
-    try {
-      // Hash the password using SHA256
-      const hashedPassword = CryptoJS.SHA256(password).toString(); // Hash password
-
-      // Insert email and hashed password into the user_account table
-      const { data, error } = await supabase
-        .from('user_account')
-        .insert([
-          { 
-            email: email.toLowerCase(), // Always store emails in lowercase
-            password: hashedPassword,   // Store hashed password
-          }
-        ]);
-
-      if (error) {
-        Alert.alert('Error', error.message); // Handle error if insertion fails
-      } else {
-        Alert.alert('Success', 'Account created successfully');
-        // Navigate to HomePage.js after success
-        navigation.navigate('MainTabs');  // Navigate to HomePage on successful signup
-      }
-    } catch (err) {
-      console.error('Signup error:', err);
-      Alert.alert('Error', 'An unexpected error occurred');
-    }
-  };
-
   return (
     <View style={styles.container}>
       {/* Logo */}
@@ -44,7 +10,7 @@ const LoginPage = ({ navigation }) => {
 
       {/* Welcome Text */}
       <Text style={styles.welcomeText}>Welcome!</Text>
-      <Text style={styles.subText}>Sign up to get started</Text>
+      <Text style={styles.subText}>Sign in to continue</Text>
 
       {/* Input fields */}
       <View style={styles.inputContainer}>
@@ -52,27 +18,30 @@ const LoginPage = ({ navigation }) => {
           style={styles.input}
           placeholder="EMAIL"
           placeholderTextColor="#808080"
-          value={email}
-          onChangeText={(text) => setEmail(text)}
         />
         <TextInput
           style={styles.input}
           placeholder="PASSWORD"
           placeholderTextColor="#808080"
           secureTextEntry
-          value={password}
-          onChangeText={(text) => setPassword(text)}
+        />
+        <Button
+          title="Forgot Password?"
+          onPress={() => navigation.navigate('ForgotPasswordScreen')}
+          style={{ backgroundColor: 'transparent' }}
+          textStyle={styles.forgotPasswordText}
         />
       </View>
 
-      {/* Signup Button */}
+      {/* Login Button */}
       <Button
-        title="Sign Up"
-        style={styles.signupButton}
-        textStyle={styles.signupButtonText}
-        onPress={handleSignup}  // Call the handleSignup function
+        title="Log In"
+        style={styles.loginButton}
+        textStyle={styles.loginButtonText}
+        onPress={() => navigation.navigate('MainTabs')} // Navigating to HomePage
       />
 
+      {/* OR Text */}
       <Text style={styles.orText}>OR</Text>
 
       {/* Social Login */}
@@ -82,12 +51,12 @@ const LoginPage = ({ navigation }) => {
         <Image source={require('../assets/gg.png')} style={styles.socialIcon} />
       </View>
 
-      {/* Already have an account */}
+      {/* Sign Up Text */}
       <View style={styles.signUpContainer}>
-        <Text style={styles.signUpPrompt}>Already have an account?</Text>
+        <Text style={styles.signUpPrompt}>Don't have an account?</Text>
         <Button
-          title="Log In"
-          onPress={() => navigation.navigate('LoginPage')}
+          title="Sign Up"
+          onPress={() => navigation.navigate('SignUpPage')}
           style={{ backgroundColor: 'transparent' }}
           textStyle={styles.signUpText}
         />
@@ -107,18 +76,21 @@ const styles = StyleSheet.create({
   logo: {
     width: 140,
     height: 80,
+    left: 100,
     resizeMode: 'contain',
     marginBottom: 20,
   },
   welcomeText: {
     fontSize: 30,
+    left: -80,
     fontWeight: 'bold',
-    color: '#335441', 
+    color: '#335441', // Dark green text
     marginBottom: 5,
   },
   subText: {
     fontSize: 16,
-    color: '#808080', 
+    left: -80,
+    color: '#808080', // Light grey text
     marginBottom: 30,
   },
   inputContainer: {
@@ -128,30 +100,38 @@ const styles = StyleSheet.create({
   input: {
     height: 45,
     borderWidth: 1,
-    borderColor: '#335441', 
+    borderColor: '#335441', // Dark green border color
     borderRadius: 10,
     paddingHorizontal: 10,
     marginBottom: 15,
   },
-  signupButton: {
+  forgotPasswordText: {
+    top: -20,
+    alignSelf: 'flex-end',
+    color: '#808080', // Light grey text
+  },
+  loginButton: {
     width: '100%',
-    backgroundColor: '#335441', 
+    backgroundColor: '#335441', // Dark green background
     paddingVertical: 10,
     borderRadius: 10,
     marginBottom: 20,
     alignItems: 'center',
+    top: -20,
   },
-  signupButtonText: {
+  loginButtonText: {
     color: '#fff',
     fontSize: 15,
     fontWeight: 'bold',
   },
   orText: {
+    top: -40,
     fontSize: 16,
     color: '#808080',
     marginVertical: 20,
   },
   socialLoginContainer: {
+    top: -45,
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '80%',
@@ -163,6 +143,7 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   signUpContainer: {
+    top: -20,
     flexDirection: 'row',
     marginTop: 20,
   },
@@ -171,6 +152,7 @@ const styles = StyleSheet.create({
   },
   signUpText: {
     color: '#335441',
+    top: -15,
     fontWeight: 'bold',
   },
 });

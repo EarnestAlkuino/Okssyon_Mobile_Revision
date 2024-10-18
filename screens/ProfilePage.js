@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, StatusBar } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import Header from '../Components/Header';
+import Header from '../Components/Header'; // Ensure this path is correct
 
 const ProfilePage = ({ navigation }) => {
   const [imageUri, setImageUri] = useState(null);
@@ -9,7 +9,6 @@ const ProfilePage = ({ navigation }) => {
   const [userName, setUserName] = useState('John Doe'); // Default username
 
   useEffect(() => {
-    // Simulate fetching user data
     const fetchUserData = () => {
       setUserName('Jane Doe'); // Replace with dynamic data
       setEmail('janedoe@example.com'); // Replace with dynamic data
@@ -46,8 +45,9 @@ const ProfilePage = ({ navigation }) => {
       <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
       <Header
         title="Profile"
-        onBackPress={handleBackPress}
+        onBackPress={() => navigation.goBack()}
         onSettingsPress={handleSettingsPress}
+        showSettingsButton={true} // Ensure this is true to display settings icon
       />
 
       <View style={styles.profileContainer}>
@@ -70,7 +70,6 @@ const ProfilePage = ({ navigation }) => {
   );
 };
 
-// Styles definition without Poppins font
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -2,41 +2,22 @@ import React from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Header from '../Components/Header';
 
-const MessagePage = () => {
+const MessagePage = ({ navigation }) => {
   return (
     <View style={styles.container}>
       {/* Ensure the status bar content is light */}
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
 
-      {/* Header Section with Gradient */}
-      <LinearGradient
-        colors={['#257446', '#234D35']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}>
-        <TouchableOpacity>
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Message</Text>
-        <TouchableOpacity>
-          <Ionicons name="person-circle" size={30} color="white" />
-        </TouchableOpacity>
-      </LinearGradient>
-
-      {/* Subheader */}
-      <LinearGradient
-        colors={['#257446', '#234D35']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.subheader}>
-        <Text style={styles.subheaderTitle}>Inbox</Text>
-        <TouchableOpacity style={styles.newMessageButton}>
-          <Ionicons name="create-outline" size={24} color="white" />
-          <Text style={styles.newMessageText}>New Message</Text>
-        </TouchableOpacity>
-      </LinearGradient>
+      {/* Header Section with reusable Header component */}
+      <Header 
+        title="Message"
+        showBackButton={true}
+        showSettingsButton={false} // You can toggle this as needed
+        onBackPress={() => navigation.goBack()} // Navigate to Recent page
+        onNewMessagePress={() => {/* handle new message action here */}} // Define new message action
+      />
 
       {/* Search Bar */}
       <View style={styles.searchBar}>
@@ -56,39 +37,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'white',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 15,
-    paddingTop: StatusBar.currentHeight || 30, // Ensures the gradient covers the status bar area
-  },
-  headerTitle: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'semi-bold',
-  },
-  subheader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-  },
-  subheaderTitle: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  newMessageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  newMessageText: {
-    color: 'white',
-    marginLeft: 5,
   },
   searchBar: {
     flexDirection: 'row',

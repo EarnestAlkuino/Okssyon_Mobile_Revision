@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-nativ
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons'; // For icons
 import * as SplashScreen from 'expo-splash-screen';
+import Header from '../Components/Header';
 
 const NotificationPage = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState('Recent');
@@ -24,18 +25,13 @@ const NotificationPage = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Gradient Header */}
-      <LinearGradient
-        colors={['#257446', '#234D35']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <TouchableOpacity onPress={handleBackPress}>
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Notification</Text>
-      </LinearGradient>
+      {/* Gradient Header with reusable Header component */}
+      <Header 
+        title="Notification"
+        showBackButton={true}
+        showSettingsButton={false} // You can toggle this as needed
+        onBackPress={handleBackPress} // Define back press action
+      />
 
       {/* Tabs */}
       <View style={styles.tabContainer}>
@@ -71,21 +67,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 50,
-    paddingTop: StatusBar.currentHeight || 30, // Ensures the gradient covers the status bar area
-  },
-  title: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: '500',
-    top: 20,
-    right: 100,
   },
   tabContainer: {
     flexDirection: 'row',

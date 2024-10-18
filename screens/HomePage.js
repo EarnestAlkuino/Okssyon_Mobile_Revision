@@ -26,12 +26,12 @@ const HomePage = ({ navigation }) => {
   }, []);
 
   const auctionCategories = [
-    { id: '1', title: 'Cattle Auctions', Icon: CattleIcon },
-    { id: '2', title: 'Horse Auctions', Icon: HorseIcon },
-    { id: '3', title: 'Sheep Auctions', Icon: SheepIcon },
-    { id: '4', title: 'Carabao Auctions', Icon: CarabaoIcon },
-    { id: '5', title: 'Goat Auctions', Icon: GoatIcon },
-    { id: '6', title: 'Pig Auctions', Icon: PigIcon },
+    { id: '1', Icon: CattleIcon,  },
+    { id: '2', Icon: HorseIcon,  },
+    { id: '3', Icon: SheepIcon,},
+    { id: '4', Icon: CarabaoIcon,  },
+    { id: '5', Icon: GoatIcon,},
+    { id: '6', Icon: PigIcon, },
   ];
 
   const renderCategoryItem = ({ item }) => {
@@ -43,7 +43,8 @@ const HomePage = ({ navigation }) => {
         onPress={() => navigation.navigate('AuctionPage', { category: item.title })}
       >
         <View style={styles.iconContainer}>
-          <IconComponent width={88} height={88} fill="#ffffff" />
+          <IconComponent width={88} height={90} fill="#ffffff" />
+          <Text style={styles.categoryTitle}>{item.title}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -68,8 +69,8 @@ const HomePage = ({ navigation }) => {
       </View>
 
       {/* Announcement Banner with Centered Text */}
-      <LinearGradient 
-        colors={['rgba(185, 211, 112, 0.8)', 'rgba(113, 186, 144, 0.8)']} 
+      <LinearGradient
+        colors={['rgba(185, 211, 112, 0.8)', 'rgba(113, 186, 144, 0.8)']}
         style={styles.announcementBanner}
       >
         <Text style={styles.announcementText}>{announcement}</Text>
@@ -83,13 +84,13 @@ const HomePage = ({ navigation }) => {
       </LinearGradient>
 
       {/* Livestock Selection Label */}
-      <Text style={styles.selectionLabel}>Livestock Selection</Text>
+      <Text style={styles.selectionLabel}>LIVESTOCK AUCTION SELECTION</Text>
 
       <FlatList
         data={auctionCategories}
         renderItem={renderCategoryItem}
         keyExtractor={(item) => item.id}
-        numColumns={2} // Set to 2 for a 2x3 layout
+        numColumns={3} // Set to 3 for a 3-column layout
         columnWrapperStyle={styles.columnWrapper} // Adjusts spacing between items
         contentContainerStyle={styles.grid}
       />
@@ -107,7 +108,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 30,
-    paddingVertical: 20,
+    top: 25,
+    paddingVertical: 50, // Reduced vertical padding for better alignment
   },
   helloText: {
     fontSize: 20,
@@ -125,7 +127,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     alignItems: 'center',
   },
-  announcementText: { 
+  announcementText: {
     fontSize: 22,
     color: '#405e40',
     fontWeight: 'bold',
@@ -165,16 +167,23 @@ const styles = StyleSheet.create({
   iconButton: {
     flex: 1,
     alignItems: 'center',
-    marginVertical: 10,
-    width: '45%', // Set width to ensure items fit properly in two columns
+    marginVertical: 15,
+    width: '30%', // Set width to ensure items fit properly in three columns
   },
   iconContainer: {
-    width: 120,
-    height: 100,
+    width: 108,
+    height: 110,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 5,
+    borderRadius: 10,
     backgroundColor: '#FFFFFF',
+  },
+  categoryTitle: {
+    marginTop: 5,
+    fontSize: 14,
+    color: '#405e40',
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,
@@ -182,8 +191,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   columnWrapper: {
-    justifyContent: 'space-between', // Ensures even spacing for 2 items
-    marginBottom: 15,
+    justifyContent: 'space-between', // Ensures even spacing for 3 items
+    marginBottom: -12,
   },
   grid: {
     paddingBottom: 10,

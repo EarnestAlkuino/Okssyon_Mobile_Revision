@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
 const auctionCategories = [
   { id: '1', title: 'Cattle', icon: require('../assets/iconCattle.png') },
   { id: '2', title: 'Horse', icon: require('../assets/iconHorse.png') },
@@ -28,10 +29,7 @@ const AuctionPage = ({ route, navigation }) => {
         >
           <Image
             source={item.icon}
-            style={[
-              styles.icon,
-              selectedCategory === item.title && styles.iconSelected,
-            ]}
+            style={[styles.icon, selectedCategory === item.title && styles.iconSelected]}
           />
         </TouchableOpacity>
       ))}
@@ -40,12 +38,10 @@ const AuctionPage = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      
-      <StatusBar hidden={true} />
+      {/* StatusBar with transparent background */}
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
 
-      
       <View style={styles.backgroundContainer}>
-       
         <TouchableOpacity
           style={styles.backButton} 
           onPress={() => navigation.goBack()}
@@ -53,21 +49,15 @@ const AuctionPage = ({ route, navigation }) => {
           <Ionicons name="arrow-back" size={24} color="#335441" />
         </TouchableOpacity>
 
-        
         <Image source={require('../assets/logo1.png')} style={styles.logo} />
 
-        
-        <TouchableOpacity
-          style={styles.searchButton} 
-        >
+        <TouchableOpacity style={styles.searchButton}>
           <Ionicons name="search" size={24} color="#335441" />
         </TouchableOpacity>
 
-        
         {renderCategoryIcons()}
       </View>
 
-     
       <View style={styles.content}>
         <Text style={styles.title}>Welcome to {selectedCategory} Auctions</Text>
       </View>
@@ -82,21 +72,22 @@ const styles = StyleSheet.create({
   backgroundContainer: {
     backgroundColor: 'rgba(182, 194, 148, 0.21)', 
     paddingBottom: 10,
-    paddingTop: 0, 
+    paddingTop: 10, // Optional padding at the top
     borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
     position: 'relative', 
   },
   backButton: {
     position: 'absolute',
-    top: 10, 
-    left: 10, 
+    top: 45, 
+    left: 29, 
     zIndex: 1, 
   },
   searchButton: {
     position: 'absolute',
-    top: 10, 
-    right: 10, 
+    top: 45, 
+    right: 29, 
+  
     zIndex: 1, 
   },
   logo: {
@@ -104,7 +95,7 @@ const styles = StyleSheet.create({
     height: 50,
     resizeMode: 'contain',
     alignSelf: 'center', 
-    marginTop: 10, 
+    marginTop: 35, 
   },
   iconContainer: {
     paddingLeft: 10,
@@ -140,4 +131,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AuctionPage;1
+export default AuctionPage;
