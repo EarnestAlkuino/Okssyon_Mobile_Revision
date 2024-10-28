@@ -1,29 +1,79 @@
-import React from 'react';
-import { View, Text, TextInput, Image, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, StyleSheet, Alert } from 'react-native';
 import Button from '../Components/Button'; // Reusable button component
+import { supabase } from '../supabase'; // Assuming you have configured Supabase
 
 const LoginPage = ({ navigation }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Sign in function
+  async function signInWithEmail() {
+    setLoading(true);
+
+    // Sign in using Supabase's auth system
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: password,
+    });
+
+    if (error) {
+      Alert.alert("Login Error", error.message); // Show alert for error
+      setLoading(false);
+      return; // Exit the function if there is an error
+    }
+
+    // Ensure that data and user exist
+    const user = data?.user;
+
+    if (!user) {
+      Alert.alert("Login Error", "User not found or authentication failed.");
+      setLoading(false);
+      return;
+    }
+
+    // Fetch user profile after successful login
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id) // Use user.id to query the profile
+      .single();
+
+    if (profileError) {
+      Alert.alert('Error fetching profile:', profileError.message);
+      setLoading(false);
+      return;
+    }
+
+    // Show welcome message with user's full name
+    Alert.alert(`Welcome, ${profile.full_name}!`);
+    // Pass userId to MainTabs so it can propagate through other screens
+    navigation.navigate('MainTabs', { userId: user.id });
+
+    setLoading(false);
+  }
+
   return (
     <View style={styles.container}>
-      {/* Logo */}
-      <Image source={require('../assets/logo1.png')} style={styles.logo} />
-
-      {/* Welcome Text */}
-      <Text style={styles.welcomeText}>Welcome!</Text>
-      <Text style={styles.subText}>Sign in to continue</Text>
-
       {/* Input fields */}
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
           placeholder="EMAIL"
           placeholderTextColor="#808080"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
         />
         <TextInput
           style={styles.input}
           placeholder="PASSWORD"
           placeholderTextColor="#808080"
           secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+          autoCapitalize="none"
         />
         <Button
           title="Forgot Password?"
@@ -38,25 +88,19 @@ const LoginPage = ({ navigation }) => {
         title="Log In"
         style={styles.loginButton}
         textStyle={styles.loginButtonText}
-        onPress={() => navigation.navigate('MainTabs')} // Navigating to HomePage
+        onPress={signInWithEmail}
+        disabled={loading}
       />
 
       {/* OR Text */}
       <Text style={styles.orText}>OR</Text>
 
-      {/* Social Login */}
-      <View style={styles.socialLoginContainer}>
-        <Image source={require('../assets/fb.png')} style={styles.socialIcon} />
-        <Image source={require('../assets/ios.png')} style={styles.socialIcon} />
-        <Image source={require('../assets/gg.png')} style={styles.socialIcon} />
-      </View>
-
-      {/* Sign Up Text */}
+      {/* Sign Up Navigation */}
       <View style={styles.signUpContainer}>
         <Text style={styles.signUpPrompt}>Don't have an account?</Text>
         <Button
           title="Sign Up"
-          onPress={() => navigation.navigate('SignUpPage')}
+          onPress={() => navigation.navigate('SignUpPage')} // Navigate to SignUpPage
           style={{ backgroundColor: 'transparent' }}
           textStyle={styles.signUpText}
         />
@@ -73,26 +117,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff',
   },
-  logo: {
-    width: 140,
-    height: 80,
-    left: 100,
-    resizeMode: 'contain',
-    marginBottom: 20,
-  },
-  welcomeText: {
-    fontSize: 30,
-    left: -80,
-    fontWeight: 'bold',
-    color: '#335441', // Dark green text
-    marginBottom: 5,
-  },
-  subText: {
-    fontSize: 16,
-    left: -80,
-    color: '#808080', // Light grey text
-    marginBottom: 30,
-  },
   inputContainer: {
     width: '100%',
     marginBottom: 10,
@@ -106,7 +130,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   forgotPasswordText: {
-    top: -20,
     alignSelf: 'flex-end',
     color: '#808080', // Light grey text
   },
@@ -117,7 +140,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 20,
     alignItems: 'center',
-    top: -20,
   },
   loginButtonText: {
     color: '#fff',
@@ -125,25 +147,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   orText: {
-    top: -40,
     fontSize: 16,
     color: '#808080',
     marginVertical: 20,
   },
-  socialLoginContainer: {
-    top: -45,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '80%',
-    marginBottom: 20,
-  },
-  socialIcon: {
-    width: 42,
-    height: 42,
-    resizeMode: 'contain',
-  },
   signUpContainer: {
-    top: -20,
     flexDirection: 'row',
     marginTop: 20,
   },
@@ -152,7 +160,6 @@ const styles = StyleSheet.create({
   },
   signUpText: {
     color: '#335441',
-    top: -15,
     fontWeight: 'bold',
   },
 });

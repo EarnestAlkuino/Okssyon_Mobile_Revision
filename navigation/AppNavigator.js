@@ -19,6 +19,9 @@ import LanguagePage from '../screens/LanguagePage';
 import PnsPage from '../navigation/PnsPage';  
 import Newmessage from '../screens/Newmessage';
 import UploadedPage from '../screens/UploadedPage';
+import LivestockAuctionDetailPage from '../screens/LivestockAuctionDetailPage';
+import ChatPage from '../screens/ChatPage';
+import BidPage from '../screens/BidPage';
 
 const Stack = createStackNavigator();
 
@@ -110,6 +113,21 @@ const AppNavigator = () => {
         <Stack.Screen
         name="Newmessage"
         component={Newmessage}
+        options={{headerShown: false}}
+        />
+         <Stack.Screen
+        name="LivestockAuctionDetailPage"
+        component={LivestockAuctionDetailPage}
+        options={{headerShown: false}}
+        />
+        <Stack.Screen
+        name="ChatPage"
+        component={ChatPage}
+        options={{headerShown: false}}
+        />
+         <Stack.Screen
+        name="BidPage"
+        component={BidPage}
         options={{headerShown: false}}
         />
         <Stack.Screen

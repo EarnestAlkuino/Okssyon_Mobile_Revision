@@ -1,89 +1,124 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert } from 'react-native';
-import Button from '../Components/Button';
-import supabase from '../supabaseClient'; // Import the Supabase client
+import { View, Text, TextInput, Image, StyleSheet, Alert } from 'react-native';
+import Button from '../Components/Button'; // Reusable button component
+import { supabase } from '../supabase'; // Assuming you have configured Supabase
 
-const SignupPage = ({ navigation }) => {
-  const [fullName, setFullName] = useState('');
+const SignUpPage = ({ navigation }) => {
+  const [fullName, setFullName] = useState(''); // Full name input
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  // Function to handle the sign-up process
-  const handleSignup = async () => {
-    // Check if password and confirm password match
+  // Sign up function
+  async function signUpWithEmail() {
+    // Check if passwords match
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      Alert.alert("Passwords do not match");
       return;
     }
 
-    try {
-      // Insert the user details (full name, email, and password) into the user_profiles table
-      const { error } = await supabase
-        .from('user_profiles')
-        .insert([{ full_name: fullName, email, password }]); // Store the plain password (you should hash it if necessary)
-
-      if (error) {
-        Alert.alert('Error', error.message);
-      } else {
-        Alert.alert('Success', 'Account created successfully!');
-        navigation.navigate('VerifyPage'); // Navigate to the verification page
-      }
-    } catch (error) {
-      Alert.alert('Error', error.message);
+    // Basic validation
+    if (!fullName || !email || !password) {
+      Alert.alert('Please fill in all fields.');
+      return;
     }
-  };
+
+    setLoading(true);
+
+    // Step 1: Sign up the user with email and password
+    const { error, data } = await supabase.auth.signUp({
+      email: email,
+      password: password,
+    });
+
+    if (error) {
+      Alert.alert('Error signing up:', error.message);
+      setLoading(false);
+      return;
+    }
+
+    const user = data.user; // Get the user object
+
+    // Step 2: Insert full name and email into 'profiles' table
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert([{ id: user.id, full_name: fullName, email: email }]);
+
+    if (profileError) {
+      Alert.alert('Error inserting profile:', profileError.message);
+    } else {
+      Alert.alert('Please check your inbox for email verification!');
+      navigation.navigate('LoginPage'); // Navigate to LoginPage after signup
+    }
+
+    setLoading(false);
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Create an Account</Text>
+      {/* Logo */}
+      <Image source={require('../assets/logo1.png')} style={styles.logo} />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Full Name"
-        placeholderTextColor="#808080"
-        value={fullName}
-        onChangeText={setFullName}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        placeholderTextColor="#808080"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="#808080"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Confirm Password"
-        placeholderTextColor="#808080"
-        secureTextEntry
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-      />
+      {/* Welcome Text */}
+      <Text style={styles.welcomeText}>Create Account!</Text>
+      <Text style={styles.subText}>Sign up to get started</Text>
 
+      {/* Input fields */}
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="FULL NAME"
+          placeholderTextColor="#808080"
+          value={fullName}
+          onChangeText={setFullName}
+          autoCapitalize="words"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="EMAIL"
+          placeholderTextColor="#808080"
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="PASSWORD"
+          placeholderTextColor="#808080"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+          autoCapitalize="none"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="CONFIRM PASSWORD"
+          placeholderTextColor="#808080"
+          secureTextEntry
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          autoCapitalize="none"
+        />
+      </View>
+
+      {/* Sign Up Button */}
       <Button
         title="Sign Up"
-        style={styles.signupButton}
-        textStyle={styles.signupButtonText}
-        onPress={handleSignup} // Call the signup handler
+        style={styles.signUpButton}
+        textStyle={styles.signUpButtonText}
+        onPress={signUpWithEmail}
+        disabled={loading}
       />
 
-      <View style={styles.loginRedirect}>
+      {/* Already have an account? */}
+      <View style={styles.loginContainer}>
         <Text style={styles.loginPrompt}>Already have an account?</Text>
         <Button
           title="Log In"
-          style={styles.loginButton}
-          textStyle={styles.loginButtonText}
-          onPress={() => navigation.navigate('LoginPage')}
+          onPress={() => navigation.navigate('LoginPage')} // Navigate to LoginPage
+          style={{ backgroundColor: 'transparent' }}
+          textStyle={styles.loginText}
         />
       </View>
     </View>
@@ -98,50 +133,59 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  logo: {
+    width: 140,
+    height: 80,
+    resizeMode: 'contain',
     marginBottom: 20,
-    color: '#335441',
+  },
+  welcomeText: {
+    fontSize: 30,
+    fontWeight: 'bold',
+    color: '#335441', // Dark green text
+    marginBottom: 5,
+  },
+  subText: {
+    fontSize: 16,
+    color: '#808080', // Light grey text
+    marginBottom: 30,
+  },
+  inputContainer: {
+    width: '100%',
+    marginBottom: 10,
   },
   input: {
-    width: '100%',
-    height: 50,
+    height: 45,
     borderWidth: 1,
-    borderColor: '#335441',
+    borderColor: '#335441', // Dark green border color
     borderRadius: 10,
     paddingHorizontal: 10,
     marginBottom: 15,
   },
-  signupButton: {
+  signUpButton: {
     width: '100%',
-    backgroundColor: '#335441',
-    paddingVertical: 15,
+    backgroundColor: '#335441', // Dark green background
+    paddingVertical: 10,
     borderRadius: 10,
     marginBottom: 20,
     alignItems: 'center',
   },
-  signupButtonText: {
+  signUpButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
   },
-  loginRedirect: {
+  loginContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginTop: 20,
   },
   loginPrompt: {
     color: '#808080',
-    marginRight: 10,
   },
-  loginButton: {
-    backgroundColor: 'transparent',
-  },
-  loginButtonText: {
+  loginText: {
     color: '#335441',
     fontWeight: 'bold',
   },
 });
 
-export default SignupPage;
+export default SignUpPage;

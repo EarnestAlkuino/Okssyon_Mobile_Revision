@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@expo-google-fonts/poppins": "^0.2.3",
-    "@react-native-async-storage/async-storage": "^2.0.0",
+    "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/datetimepicker": "^8.2.0",
     "@react-native-community/masked-view": "^0.1.11",
     "@react-native-picker/picker": "^2.8.1",
@@ -18,7 +18,8 @@
     "@react-navigation/material-top-tabs": "^6.6.14",
     "@react-navigation/native": "^6.1.18",
     "@react-navigation/stack": "^6.4.1",
-    "@supabase/supabase-js": "^2.45.4",
+    "@rneui/themed": "^4.0.0-rc.8",
+    "@supabase/supabase-js": "^2.45.5",
     "axios": "^1.7.7",
     "bcryptjs": "^2.4.3",
     "crypto-js": "^4.2.0",
@@ -29,6 +30,7 @@
     "expo-font": "~12.0.10",
     "expo-image": "~1.13.0",
     "expo-image-picker": "~15.0.7",
+    "expo-keep-awake": "^13.0.2",
     "expo-linear-gradient": "~13.0.2",
     "expo-media-library": "~16.0.5",
     "expo-splash-screen": "~0.27.6",
@@ -48,8 +50,10 @@
     "react-native-svg": "^15.8.0",
     "react-native-svg-transformer": "^1.5.0",
     "react-native-tab-view": "^3.5.2",
+    "react-native-url-polyfill": "^2.0.0",
     "react-native-vector-icons": "^10.2.0",
-    "react-native-web": "~0.19.10"
+    "react-native-web": "~0.19.10",
+    "typescript": "~5.3.3"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

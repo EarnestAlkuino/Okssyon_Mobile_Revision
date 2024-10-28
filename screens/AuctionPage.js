@@ -1,66 +1,72 @@
-import React, { useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, StatusBar } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, FlatList, StyleSheet, Image, ActivityIndicator, Alert } from 'react-native';
+import { supabase } from '../supabase';
 
-const auctionCategories = [
-  { id: '1', title: 'Cattle', icon: require('../assets/iconCattle.png') },
-  { id: '2', title: 'Horse', icon: require('../assets/iconHorse.png') },
-  { id: '3', title: 'Pig', icon: require('../assets/iconPig.png') },
-  { id: '4', title: 'Carabao', icon: require('../assets/iconCrabao.png') },
-  { id: '5', title: 'Goat', icon: require('../assets/iconGoat.png') },
-];
+const AuctionPage = ({ navigation, route }) => {
+  const { category, userId } = route.params; // Receive category and userId from navigation
+  const [livestockData, setLivestockData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-const AuctionPage = ({ route, navigation }) => {
-  const { category } = route.params;
-  const [selectedCategory, setSelectedCategory] = useState(category);
+  useEffect(() => {
+    const fetchLivestockData = async () => {
+      setLoading(true);
 
-  const handleCategorySelect = (newCategory) => {
-    setSelectedCategory(newCategory);
-    navigation.navigate('AuctionPage', { category: newCategory });
+      const { data, error } = await supabase
+        .from('livestock')
+        .select('*')
+        .eq('category', category); // Fetch based on category
+
+      if (error) {
+        Alert.alert("Error", "Failed to fetch livestock data.");
+      } else {
+        setLivestockData(data);
+      }
+      
+      setLoading(false);
+    };
+
+    fetchLivestockData();
+  }, [category]);
+
+  const handleLivestockSelect = (item) => {
+    console.log("Navigating to LivestockAuctionDetailPage with itemId:", item.id, "and userId:", userId); // Debugging
+    navigation.navigate('LivestockAuctionDetailPage', { itemId: item.id, userId });
   };
 
-  const renderCategoryIcons = () => (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.iconContainer}>
-      {auctionCategories.map((item) => (
-        <TouchableOpacity
-          key={item.id}
-          style={styles.iconWrapper}
-          onPress={() => handleCategorySelect(item.title)}
-        >
-          <Image
-            source={item.icon}
-            style={[styles.icon, selectedCategory === item.title && styles.iconSelected]}
-          />
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
+  const renderItem = ({ item }) => (
+    <TouchableOpacity style={styles.card} onPress={() => handleLivestockSelect(item)}>
+      <Image
+        source={{ uri: item.image_uri || 'https://via.placeholder.com/100' }}
+        style={styles.image}
+      />
+      <View style={styles.infoContainer}>
+        <Text style={styles.categoryText}>{item.category}</Text>
+        <Text style={styles.detailsText}>Breed: {item.breed || 'Unknown'}</Text>
+        <Text style={styles.detailsText}>Location: {item.location || 'Not specified'}</Text>
+        <Text style={styles.detailsText}>Weight: {item.weight} kg</Text>
+        <Text style={styles.detailsText}>Starting Price: ₱{item.starting_price?.toLocaleString()}</Text>
+      </View>
+    </TouchableOpacity>
   );
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#405e40" />
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* StatusBar with transparent background */}
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
-
-      <View style={styles.backgroundContainer}>
-        <TouchableOpacity
-          style={styles.backButton} 
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#335441" />
-        </TouchableOpacity>
-
-        <Image source={require('../assets/logo1.png')} style={styles.logo} />
-
-        <TouchableOpacity style={styles.searchButton}>
-          <Ionicons name="search" size={24} color="#335441" />
-        </TouchableOpacity>
-
-        {renderCategoryIcons()}
-      </View>
-
-      <View style={styles.content}>
-        <Text style={styles.title}>Welcome to {selectedCategory} Auctions</Text>
-      </View>
+      <Text style={styles.header}>Available {category}</Text>
+      <FlatList
+        data={livestockData}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={styles.listContainer}
+      />
     </View>
   );
 };
@@ -68,66 +74,56 @@ const AuctionPage = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    padding: 20,
+    backgroundColor: '#f2f2f2',
   },
-  backgroundContainer: {
-    backgroundColor: 'rgba(182, 194, 148, 0.21)', 
-    paddingBottom: 10,
-    paddingTop: 10, // Optional padding at the top
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
-    position: 'relative', 
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#335441',
+    marginBottom: 10,
+    textAlign: 'center',
   },
-  backButton: {
-    position: 'absolute',
-    top: 45, 
-    left: 29, 
-    zIndex: 1, 
+  listContainer: {
+    paddingBottom: 20,
   },
-  searchButton: {
-    position: 'absolute',
-    top: 45, 
-    right: 29, 
-  
-    zIndex: 1, 
-  },
-  logo: {
-    width: 150,
-    height: 50,
-    resizeMode: 'contain',
-    alignSelf: 'center', 
-    marginTop: 35, 
-  },
-  iconContainer: {
-    paddingLeft: 10,
-    paddingRight: 10,
-    paddingVertical: 10,
-    marginTop: 20, 
-  },
-  iconWrapper: {
+  card: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 15,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
   },
-  icon: {
-    width: 60,
-    height: 60,
-    resizeMode: 'contain',
-  },
-  iconSelected: {
+  image: {
     width: 80,
     height: 80,
+    borderRadius: 10,
+    marginRight: 10,
   },
-  content: {
+  infoContainer: {
+    flex: 1,
+  },
+  categoryText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#335441',
+    marginBottom: 5,
+  },
+  detailsText: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 3,
+  },
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#335441',
   },
 });
 

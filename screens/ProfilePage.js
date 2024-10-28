@@ -1,36 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, StatusBar } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { View, Text, StyleSheet, StatusBar, Alert } from 'react-native';
+import { supabase } from '../supabase'; // Ensure this path is correct
 import Header from '../Components/Header'; // Ensure this path is correct
 
 const ProfilePage = ({ navigation }) => {
-  const [imageUri, setImageUri] = useState(null);
-  const [email, setEmail] = useState('');
-  const [userName, setUserName] = useState('John Doe'); // Default username
+  const [email, setEmail] = useState(null); // Initialize as null to show 'Loading...'
+  const [userName, setUserName] = useState(null); // Initialize as null to show 'Loading...'
 
+  // Fetch the logged-in user's profile data
   useEffect(() => {
-    const fetchUserData = () => {
-      setUserName('Jane Doe'); // Replace with dynamic data
-      setEmail('janedoe@example.com'); // Replace with dynamic data
+    const fetchUserData = async () => {
+      // Use the updated method to get the authenticated user
+      const { data: { user }, error } = await supabase.auth.getUser(); 
+
+      if (error || !user) {
+        Alert.alert('Error fetching user', error?.message || 'No user found. Please log in.');
+        return;
+      }
+
+      const { data, error: profileError } = await supabase
+        .from('profiles') // Fetch data from the 'profiles' table
+        .select('full_name, email') // Select only the full_name and email fields
+        .eq('id', user.id) // Match by user id
+        .single(); // Get a single record
+
+      if (profileError) {
+        Alert.alert('Error fetching profile data', profileError.message);
+      } else {
+        // Update state with fetched profile data
+        setUserName(data.full_name);
+        setEmail(data.email);
+      }
     };
 
-    fetchUserData();
+    fetchUserData(); // Fetch profile data when the component mounts
   }, []);
-
-  const pickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      alert('Permission to access camera roll is required!');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync();
-    if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
-    } else {
-      alert('Image selection was canceled or failed.');
-    }
-  };
 
   const handleBackPress = () => {
     navigation.goBack();
@@ -45,22 +49,21 @@ const ProfilePage = ({ navigation }) => {
       <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
       <Header
         title="Profile"
-        onBackPress={() => navigation.goBack()}
+        onBackPress={handleBackPress}
         onSettingsPress={handleSettingsPress}
-        showSettingsButton={true} // Ensure this is true to display settings icon
+        showSettingsButton={true}
       />
 
       <View style={styles.profileContainer}>
-        <TouchableOpacity onPress={pickImage} style={styles.profilePicContainer}>
-          <Image
-            source={{ uri: imageUri || 'https://via.placeholder.com/150' }}
-            style={styles.profilePic}
-          />
-        </TouchableOpacity>
+        {/* Display the user's name and email conditionally */}
+        <Text style={styles.userName}>
+          {userName || 'Loading...'} {/* Show Loading only if userName is null */}
+        </Text>
+        <Text style={styles.userEmail}>
+          {email || 'Loading...'} {/* Show Loading only if email is null */}
+        </Text>
 
-        <Text style={styles.userName}>{userName}</Text>
-        <Text style={styles.userEmail}>{email}</Text>
-
+        {/* Recent activities section (you can remove this if not needed) */}
         <View style={styles.recentActivities}>
           <Text style={styles.activitiesTitle}>Recent Activities</Text>
           <Text style={styles.activitiesText}>No recent activities available.</Text>
@@ -88,17 +91,6 @@ const styles = StyleSheet.create({
     width: '90%',
     alignSelf: 'center',
     marginTop: 20,
-  },
-  profilePicContainer: {
-    borderRadius: 75,
-    overflow: 'hidden',
-    borderWidth: 4,
-    borderColor: '#fff',
-    marginBottom: 15,
-  },
-  profilePic: {
-    width: 100,
-    height: 100,
   },
   userName: {
     color: '#405e40',
