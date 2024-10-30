@@ -6,6 +6,7 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
   const { itemId, userId: userIdFromParams } = route.params || {};
   const [userId, setUserId] = useState(userIdFromParams);
   const [item, setItem] = useState(null);
+  const [latestBid, setLatestBid] = useState(null); // State for latest bid
   const [loading, setLoading] = useState(true);
   const [imageLoading, setImageLoading] = useState(true);
 
@@ -45,6 +46,27 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
     };
     fetchItem();
   }, [itemId]);
+
+  useEffect(() => {
+    const fetchLatestBid = async () => {
+      const { data, error } = await supabase
+        .from('bids')
+        .select('bid_amount')
+        .eq('livestock_id', itemId)
+        .order('bid_amount', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('Error fetching latest bid:', error);
+      } else if (data.length > 0) {
+        setLatestBid(data[0].bid_amount);
+      } else {
+        setLatestBid(item?.starting_price); // Default to starting price if no bids
+      }
+    };
+
+    if (item) fetchLatestBid();
+  }, [item, itemId]);
 
   const isCreator = item && userId === item.owner_id;
 
@@ -110,7 +132,7 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
           <Text style={styles.priceText}>₱{item.starting_price?.toLocaleString()}</Text>
           
           <Text style={styles.label}>Latest Bid</Text>
-          <Text style={styles.priceText}>₱{item.highest_bid?.toLocaleString()}</Text>
+          <Text style={styles.priceText}>₱{latestBid?.toLocaleString()}</Text>
           
           <Text style={styles.timeRemaining}>Time Remaining: {item.time_remaining}</Text>
         </View>
