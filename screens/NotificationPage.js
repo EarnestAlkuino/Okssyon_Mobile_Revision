@@ -1,19 +1,73 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons'; // For icons
+import React, { useState, useEffect, useCallback } from 'react'; 
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, RefreshControl } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import Header from '../Components/Header';
+import { supabase } from '../supabase';
 
 const NotificationPage = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState('Recent');
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const hideSplashScreen = async () => {
       await SplashScreen.hideAsync();
     };
     hideSplashScreen();
-  }, []);
+
+    // Fetch notifications on mount and refetch on screen focus
+    const unsubscribe = navigation.addListener('focus', fetchNotifications);
+    fetchNotifications();
+
+    return unsubscribe;
+  }, [navigation]);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch the current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      
+      if (user) {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id) // Using the fetched user ID
+          .order('created_at', { ascending: false });
+  
+        if (error) throw error;
+        setNotifications(data || []);
+      } else {
+        console.log("No authenticated user found.");
+        setNotifications([]);
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error.message);
+      setError("Failed to load notifications.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchNotifications();
+  };
+
+  const handleNotificationPress = (notification) => {
+    // Direct to details page based on notification type
+    if (notification.auction_id) {
+      navigation.navigate('LivestockAuctionDetailPage', { itemId: notification.auction_id });
+    } else {
+      console.log('No associated transaction for this notification.');
+    }
+  };
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -23,14 +77,23 @@ const NotificationPage = ({ navigation }) => {
     navigation.goBack();
   };
 
+  const renderNotificationItem = ({ item }) => (
+    <TouchableOpacity onPress={() => handleNotificationPress(item)}>
+      <View style={styles.notificationItem}>
+        <Text style={styles.notificationText}>{item.message}</Text>
+        <Text style={styles.notificationDate}>{new Date(item.created_at).toLocaleString()}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
     <View style={styles.container}>
-      {/* Gradient Header with reusable Header component */}
+      {/* Header */}
       <Header 
-        title="Notification"
+        title="Notifications"
         showBackButton={true}
-        showSettingsButton={false} // You can toggle this as needed
-        onBackPress={handleBackPress} // Define back press action
+        showSettingsButton={false}
+        onBackPress={handleBackPress}
       />
 
       {/* Tabs */}
@@ -55,9 +118,21 @@ const NotificationPage = ({ navigation }) => {
 
       {/* Content */}
       <View style={styles.contentContainer}>
-        <Text style={styles.contentText}>
-          {activeTab === 'Recent' ? 'Showing Recent Notifications' : 'Showing All Notifications'}
-        </Text>
+        {loading ? (
+          <Text>Loading...</Text>
+        ) : error ? (
+          <Text style={styles.errorText}>{error}</Text>
+        ) : (
+          <FlatList
+            data={activeTab === 'Recent' ? notifications.slice(0, 5) : notifications}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderNotificationItem}
+            ListEmptyComponent={<Text>No notifications to show.</Text>}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            }
+          />
+        )}
       </View>
     </View>
   );
@@ -74,39 +149,59 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#E0E0E0',
     margin: 15,
-    borderRadius: 25, // Rounded corners for tab container
-    padding: 5, // Space around the tabs
+    borderRadius: 25,
+    padding: 5,
   },
   tab: {
     flex: 1,
     paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 25, // Rounded corners for individual tabs
+    borderRadius: 25,
   },
   activeTab: {
-    backgroundColor: '#FFFFFF', // Active tab color
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#257446', // Green border for active tab
+    borderColor: '#257446',
   },
   inactiveTab: {
-    backgroundColor: 'transparent', // No background for inactive tabs
+    backgroundColor: 'transparent',
   },
   activeTabText: {
     color: '#257446',
-    fontWeight: '600', // Semi-bold
+    fontWeight: '600',
   },
   inactiveTabText: {
     color: '#000000',
-    fontWeight: '400', // Regular
+    fontWeight: '400',
   },
   contentContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    flex: 1,
     padding: 20,
   },
-  contentText: {
-    fontSize: 18,
-    color: '#000',
+  notificationItem: {
+    padding: 15,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    marginVertical: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  notificationText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  notificationDate: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 5,
+  },
+  errorText: {
+    fontSize: 16,
+    color: 'red',
+    textAlign: 'center',
+    marginTop: 20,
   },
 });
 

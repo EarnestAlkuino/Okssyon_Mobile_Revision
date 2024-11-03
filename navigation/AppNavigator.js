@@ -22,6 +22,7 @@ import UploadedPage from '../screens/UploadedPage';
 import LivestockAuctionDetailPage from '../screens/LivestockAuctionDetailPage';
 import ChatPage from '../screens/ChatPage';
 import BidPage from '../screens/BidPage';
+import EditAuctionPage from '../screens/EditAuctionPage';
 
 const Stack = createStackNavigator();
 
@@ -128,6 +129,11 @@ const AppNavigator = () => {
          <Stack.Screen
         name="BidPage"
         component={BidPage}
+        options={{headerShown: false}}
+        />
+          <Stack.Screen
+        name="EditAuctionPage"
+        component={EditAuctionPage}
         options={{headerShown: false}}
         />
         <Stack.Screen

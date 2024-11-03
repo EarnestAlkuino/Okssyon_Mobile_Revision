@@ -1,81 +1,116 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Image, TextInput, RefreshControl, ScrollView } from 'react-native';
 import { supabase } from '../supabase';
+import { Ionicons } from '@expo/vector-icons';
 
 const LivestockAuctionDetailPage = ({ route, navigation }) => {
   const { itemId, userId: userIdFromParams } = route.params || {};
   const [userId, setUserId] = useState(userIdFromParams);
   const [item, setItem] = useState(null);
-  const [latestBid, setLatestBid] = useState(null); // State for latest bid
+  const [latestBid, setLatestBid] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUserIdIfNeeded = async () => {
-      if (!userId) {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) {
-          Alert.alert('Error', 'Failed to retrieve user. Please log in again.');
-          navigation.navigate('LoginPage');
-        } else if (user) {
-          setUserId(user.id);
-        }
-      }
-    };
     fetchUserIdIfNeeded();
-  }, [userId]);
-
-  useEffect(() => {
-    const fetchItem = async () => {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('livestock')
-        .select(`
-          *,
-          profiles:profiles!owner_id (full_name)
-        `)
-        .eq('id', itemId)
-        .single();
-
-      if (error) {
-        Alert.alert("Error", "Failed to fetch item details.");
-      } else {
-        setItem(data);
-      }
-      setLoading(false);
-    };
     fetchItem();
   }, [itemId]);
 
-  useEffect(() => {
-    const fetchLatestBid = async () => {
-      const { data, error } = await supabase
-        .from('bids')
-        .select('bid_amount')
-        .eq('livestock_id', itemId)
-        .order('bid_amount', { ascending: false })
-        .limit(1);
-
+  const fetchUserIdIfNeeded = async () => {
+    if (!userId) {
+      const { data: { user }, error } = await supabase.auth.getUser();
       if (error) {
-        console.error('Error fetching latest bid:', error);
-      } else if (data.length > 0) {
-        setLatestBid(data[0].bid_amount);
-      } else {
-        setLatestBid(item?.starting_price); // Default to starting price if no bids
+        Alert.alert('Error', 'Failed to retrieve user. Please log in again.');
+        navigation.navigate('LoginPage');
+      } else if (user) {
+        setUserId(user.id);
       }
-    };
+    }
+  };
 
-    if (item) fetchLatestBid();
-  }, [item, itemId]);
+  const fetchItem = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('livestock')
+      .select(`*, profiles:profiles!owner_id (full_name)`)
+      .eq('id', itemId)
+      .single();
+
+    if (error) {
+      Alert.alert("Error", "Failed to fetch item details.");
+    } else {
+      setItem(data);
+      fetchLatestBid(data);
+    }
+    setLoading(false);
+  };
+
+  const fetchLatestBid = async (itemData) => {
+    const { data, error } = await supabase
+      .from('bids')
+      .select('bid_amount')
+      .eq('livestock_id', itemId)
+      .order('bid_amount', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error('Error fetching latest bid:', error);
+    } else if (data.length > 0) {
+      setLatestBid(data[0].bid_amount);
+    } else {
+      setLatestBid(itemData?.starting_price);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchItem();
+    setRefreshing(false);
+  };
 
   const isCreator = item && userId === item.owner_id;
 
-  const handleAction = (actionType) => {
+  const handleAction = async (actionType) => {
     if (isCreator) {
-      Alert.alert(`${actionType} Auction`);
+      if (actionType === "Edit") {
+        if (!item?.id) {
+          Alert.alert("Error", "Auction ID is missing.");
+          return;
+        }
+        navigation.navigate('EditAuctionPage', { itemId: item.id });
+      } else if (actionType === "Delete") {
+        Alert.alert(
+          "Confirm Deletion",
+          "Are you sure you want to delete this auction?",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Delete", style: "destructive", onPress: deleteAuction },
+          ]
+        );
+      }
     } else {
       const targetPage = actionType === 'Bid' ? 'BidPage' : 'ChatPage';
       navigation.navigate(targetPage, { item, userId, ownerId: item.owner_id });
+    }
+  };
+
+  const deleteAuction = async () => {
+    try {
+      const { error } = await supabase
+        .from('livestock')
+        .delete()
+        .eq('id', itemId);
+
+      if (error) {
+        Alert.alert("Error", "Failed to delete auction. Please try again.");
+        console.error("Error deleting auction:", error);
+      } else {
+        Alert.alert("Success", "Auction deleted successfully.");
+        navigation.goBack();
+      }
+    } catch (error) {
+      console.error("Error deleting auction:", error);
     }
   };
 
@@ -88,21 +123,20 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
     );
   }
 
-  if (!item) {
-    return (
-      <View style={styles.container}>
-        <Text>No item details available.</Text>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
-      {/* Dynamic Image Section with Loading Indicator */}
+    <ScrollView
+      contentContainerStyle={styles.contentWrapper}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
       <View style={styles.imageContainer}>
-        {imageLoading && (
-          <ActivityIndicator size="large" color="#405e40" style={styles.imageLoader} />
-        )}
+        <Ionicons
+          name="arrow-back"
+          size={24}
+          color="white"
+          style={styles.backIcon}
+          onPress={() => navigation.goBack()}
+        />
+        {imageLoading && <ActivityIndicator size="large" color="#405e40" style={styles.imageLoader} />}
         <Image
           style={styles.mainImage}
           source={{ uri: item.image_url || 'https://via.placeholder.com/300' }}
@@ -110,14 +144,16 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
         />
       </View>
 
-      {/* Content Section with Info Container */}
-      <View style={styles.contentContainer}>
-        <View style={styles.infoContainer}>
-          <Text style={styles.header}>{item.category.toUpperCase()}</Text>
-          <Text style={styles.subHeader}>Weight: {item.weight}kg   Breed: {item.breed}</Text>
+      <View style={styles.detailContainer}>
+        <Text style={styles.categoryText}>{item.category?.toUpperCase()}</Text>
+
+        <View style={styles.attributesContainer}>
+          <Text style={styles.label}>Weight:</Text>
+          <Text>{item.weight} kg</Text>
+          <Text style={styles.label}>Breed:</Text>
+          <Text>{item.breed}</Text>
         </View>
 
-        {/* Seller Details Section */}
         <View style={styles.sellerContainer}>
           <Image style={styles.avatar} source={{ uri: 'https://via.placeholder.com/50' }} />
           <View style={styles.sellerInfo}>
@@ -126,76 +162,130 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
           </View>
         </View>
 
-        {/* Price and Bid Section */}
         <View style={styles.priceContainer}>
           <Text style={styles.label}>Starting Price</Text>
-          <Text style={styles.priceText}>₱{item.starting_price?.toLocaleString()}</Text>
+          <TextInput style={styles.priceText} value={`₱${item.starting_price?.toLocaleString()}`} editable={false} />
           
-          <Text style={styles.label}>Latest Bid</Text>
-          <Text style={styles.priceText}>₱{latestBid?.toLocaleString()}</Text>
-          
+          <Text style={styles.label}>Highest Bid</Text>
+          <TextInput style={styles.priceText} value={`₱${latestBid?.toLocaleString()}`} editable={false} />
+
           <Text style={styles.timeRemaining}>Time Remaining: {item.time_remaining}</Text>
         </View>
 
-        {/* Unified Button Container */}
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.button} onPress={() => handleAction(isCreator ? "Delete" : "Chat")}>
-            <Text style={styles.buttonText}>{isCreator ? "Delete" : "Chat"}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={() => handleAction(isCreator ? "Edit" : "Bid")}>
-            <Text style={styles.buttonText}>{isCreator ? "Edit" : "Bid"}</Text>
-          </TouchableOpacity>
+          {isCreator ? (
+            <>
+              <TouchableOpacity style={styles.deleteButton} onPress={() => handleAction("Delete")}>
+                <Text style={styles.deleteButtonText}>Delete</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.editButton} onPress={() => handleAction("Edit")}>
+                <Text style={styles.editButtonText}>Edit</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity style={styles.bidButton} onPress={() => handleAction("Bid")}>
+                <Text style={styles.bidButtonText}>Bid</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.chatButton} onPress={() => handleAction("Chat")}>
+                <Text style={styles.chatButtonText}>Chat</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  contentWrapper: { flex: 1, backgroundColor: '#fff' },
   imageContainer: {
     width: '100%',
-    height: 200,
+    height: 250,
     position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
+  },
+  backIcon: {
+    position: 'absolute',
+    top: 20,
+    left: 10,
+    zIndex: 1,
   },
   mainImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
   },
-  imageLoader: {
-    position: 'absolute',
-    zIndex: 1,
+  detailContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    marginTop: -20,
+    flex: 1,
   },
-  contentContainer: { flex: 1, paddingHorizontal: 20 },
-  infoContainer: {
-    padding: 20,
-    backgroundColor: '#f8f8f8',
-    borderRadius: 8,
+  categoryText: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', color: '#405e40', marginBottom: 10 },
+  attributesContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
     marginBottom: 20,
   },
-  header: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 10 },
-  subHeader: { fontSize: 16, color: '#555', textAlign: 'center', marginBottom: 20 },
+  label: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 1 },
   sellerContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   avatar: { width: 50, height: 50, borderRadius: 25, marginRight: 10 },
   sellerInfo: { flex: 1 },
-  label: { fontSize: 16, fontWeight: 'bold', color: '#333' },
   infoText: { fontWeight: 'normal', color: '#555' },
   priceContainer: { marginBottom: 20 },
-  priceText: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', color: '#333', marginVertical: 5 },
-  timeRemaining: { textAlign: 'center', color: '#777' },
-  buttonContainer: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 20 },
-  button: {
-    backgroundColor: '#335441',
+  priceText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#333',
+    backgroundColor: '#f1f1f1',
     padding: 10,
     borderRadius: 5,
+    marginBottom: 10,
+  },
+  timeRemaining: { textAlign: 'left', color: '#777', marginBottom: 10 },
+  buttonContainer: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 2 },
+  deleteButton: {
+    borderColor: '#335441',
+    borderWidth: 2,
+    padding: 10,
+    borderRadius: 10,
     width: '40%',
     alignItems: 'center',
   },
-  buttonText: { color: '#fff', fontWeight: 'bold' },
+  deleteButtonText: { color: '#335441', fontWeight: 'bold' },
+  editButton: {
+    backgroundColor: '#335441',
+    padding: 10,
+    borderRadius: 10,
+    width: '40%',
+    alignItems: 'center',
+  },
+  editButtonText: { color: '#fff', fontWeight: 'bold' },
+  bidButton: {
+    backgroundColor: '#335441',
+    padding: 10,
+    borderRadius: 10,
+    width: '40%',
+    alignItems: 'center',
+  },
+  bidButtonText: { color: '#fff', fontWeight: 'bold' },
+  chatButton: {
+    borderColor: '#335441',
+    borderWidth: 2,
+    padding: 10,
+    borderRadius: 10,
+    width: '40%',
+    alignItems: 'center',
+  },
+  chatButtonText: { color: '#335441', fontWeight: 'bold' },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
