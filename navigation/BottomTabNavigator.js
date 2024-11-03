@@ -19,7 +19,7 @@ const BottomTabNavigator = () => {
         tabBarIcon: ({ focused }) => {
           let iconName;
           let iconSize = 28;  // Keep all icons the same size
-          let iconColor = focused ? '#fff' : '#A0A0A0';
+          let iconColor = focused ? '#fff' : '#405e40';
 
           // Define icons based on the route name
           switch (route.name) {
@@ -63,7 +63,7 @@ const BottomTabNavigator = () => {
           }
         },
         tabBarLabel: ({ focused }) => (
-          <Text style={{ color: focused ? '#ff9a76' : '#A0A0A0', fontSize: 12 }}>
+          <Text style={{ color: focused ? '#ff9a76' : '#405e40', fontSize: 12 }}>
             {route.name}
           </Text>
         ),

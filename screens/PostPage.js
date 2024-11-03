@@ -140,18 +140,8 @@ const PostPage = ({ navigation }) => {
 
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <View style={styles.formContainer}>
-          <TouchableOpacity onPress={pickImage} style={styles.uploadButton}>
-            {image ? (
-              <Image source={{ uri: image }} style={styles.imagePreview} />
-            ) : (
-              <View style={styles.iconTextContainer}>
-                <Ionicons name="image-outline" size={40} color="#888" />
-                <Text style={styles.uploadText}>Upload Photos</Text>
-              </View>
-            )}
-          </TouchableOpacity>
 
-          <View style={styles.inputContainer}>
+        <View style={styles.inputContainer}>
             <Picker
               selectedValue={category}
               onValueChange={(itemValue) => setCategory(itemValue)}
@@ -165,19 +155,16 @@ const PostPage = ({ navigation }) => {
               <Picker.Item label="GOAT" value="Goat" />
             </Picker>
           </View>
-
-          <TouchableOpacity onPress={() => pickDocument(setProofOfOwnership)} style={styles.documentUploadButton}>
-            <View style={styles.iconTextContainer}>
-              <Ionicons name="document-outline" size={20} color="#888" />
-              <Text style={styles.documentUploadText}>Proof of Ownership</Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => pickDocument(setVetCertificate)} style={styles.documentUploadButton}>
-            <View style={styles.iconTextContainer}>
-              <Ionicons name="document-text-outline" size={20} color="#888" />
-              <Text style={styles.documentUploadText}>Vet Certificate</Text>
-            </View>
+          
+          <TouchableOpacity onPress={pickImage} style={styles.uploadButton}>
+            {image ? (
+              <Image source={{ uri: image }} style={styles.imagePreview} />
+            ) : (
+              <View style={styles.iconTextContainer}>
+                <Ionicons name="image-outline" size={40} color="#888" />
+                <Text style={styles.uploadText}>Upload Photos</Text>
+              </View>
+            )}
           </TouchableOpacity>
 
           <View style={styles.doubleInputContainer}>
@@ -217,6 +204,20 @@ const PostPage = ({ navigation }) => {
             value={location}
             onChangeText={setLocation}
           />
+
+<TouchableOpacity onPress={() => pickDocument(setProofOfOwnership)} style={styles.documentUploadButton}>
+            <View style={styles.iconTextContainer}>
+              <Ionicons name="document-outline" size={20} color="#888" />
+              <Text style={styles.documentUploadText}>Upload Proof of Ownership</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => pickDocument(setVetCertificate)} style={styles.documentUploadButton}>
+            <View style={styles.iconTextContainer}>
+              <Ionicons name="document-text-outline" size={20} color="#888" />
+              <Text style={styles.documentUploadText}>Upload Vet Certificate</Text>
+            </View>
+          </TouchableOpacity>
 
           <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.input}>
             <Text>{`Auction Start: ${date.toLocaleDateString()}`}</Text>
@@ -268,7 +269,7 @@ const styles = StyleSheet.create({
   formContainer: {
     backgroundColor: '#fff',
     borderRadius: 15,
-    marginBottom: 10,
+    marginBottom: 0,
     padding: 15,
   },
   uploadButton: {
@@ -291,6 +292,8 @@ const styles = StyleSheet.create({
   },
   iconTextContainer: {
     alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
   },
   inputContainer: {
     marginBottom: 10,
@@ -299,6 +302,7 @@ const styles = StyleSheet.create({
   },
   picker: {
     height: 40,
+    padding: 30,
   },
   doubleInputContainer: {
     flexDirection: 'row',
@@ -332,11 +336,14 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 10,
     marginBottom: 10,
+    justifyContent: 'center',
   },
   documentUploadText: {
     color: '#888',
-    marginLeft: 10,
+    marginLeft: 5,
     fontSize: 14,
+    justifyContent: 'center',
+  
   },
   buttonContainer: {
     flexDirection: 'row',
