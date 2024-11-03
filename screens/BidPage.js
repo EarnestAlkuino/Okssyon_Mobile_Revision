@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
 
 const BidPage = ({ route, navigation }) => {
-  const { item, userId, ownerId } = route.params; // Receive ownerId here
+  const { item, userId, ownerId } = route.params;
   const [bidAmount, setBidAmount] = useState('');
   const [currentHighestBid, setCurrentHighestBid] = useState(item.starting_price || 0);
   const [bidCount, setBidCount] = useState(0);
@@ -33,10 +33,9 @@ const BidPage = ({ route, navigation }) => {
   }, [item.id]);
 
   const handlePlaceBid = async () => {
-    // Prevent owner from bidding
     if (userId === ownerId) {
       Alert.alert('Error', 'You cannot place a bid on your own auction.');
-      return; // Exit function if user is the owner
+      return;
     }
 
     const parsedBidAmount = parseFloat(bidAmount);
@@ -104,11 +103,20 @@ const BidPage = ({ route, navigation }) => {
       />
 
       <View style={styles.presetBidContainer}>
-        {[1000, 3000, 5000, 10000].map((amount) => (
-          <TouchableOpacity key={amount} style={styles.presetButton} onPress={() => addToBid(amount)}>
-            <Text style={styles.presetButtonText}>+₱{amount.toLocaleString()}</Text>
-          </TouchableOpacity>
-        ))}
+        <View style={styles.presetRow}>
+          {[1000, 3000].map((amount) => (
+            <TouchableOpacity key={amount} style={styles.presetButton} onPress={() => addToBid(amount)}>
+              <Text style={styles.presetButtonText}>+₱{amount.toLocaleString()}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={styles.presetRow}>
+          {[5000, 10000].map((amount) => (
+            <TouchableOpacity key={amount} style={styles.presetButton} onPress={() => addToBid(amount)}>
+              <Text style={styles.presetButtonText}>+₱{amount.toLocaleString()}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
 
       <View style={styles.buttonContainer}>
@@ -189,19 +197,22 @@ const styles = StyleSheet.create({
     borderColor: '#335441',
     borderRadius: 10,
     padding: 10,
-    marginBottom: 20,
+    marginBottom: 15,
   },
   presetBidContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
     width: '80%',
     marginBottom: 20,
+  },
+  presetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 10,
   },
   presetButton: {
     backgroundColor: '#e0e0e0',
     padding: 10,
     borderRadius: 10,
-    width: '42%',
+    width: '48%',
     alignItems: 'center',
   },
   presetButtonText: {
@@ -212,10 +223,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '80%',
+    marginTop: 15,
   },
   submitButton: {
     backgroundColor: '#335441',
-    padding: 15,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
     borderRadius: 10,
     width: '48%',
     alignItems: 'center',
@@ -226,7 +239,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     width: '48%',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 15,
   },
   buttonText: {
     color: '#fff',
