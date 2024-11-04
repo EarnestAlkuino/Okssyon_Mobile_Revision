@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react'; 
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, RefreshControl } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import Header from '../Components/Header';
-import { supabase } from '../supabase';
+import { supabase } from '../supabase'; // Ensure this is the correct path for Supabase client
 
 const NotificationPage = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState('Recent');
@@ -16,57 +16,28 @@ const NotificationPage = ({ navigation }) => {
       await SplashScreen.hideAsync();
     };
     hideSplashScreen();
+  }, []);
 
-    // Fetch notifications on mount and refetch on screen focus
-    const unsubscribe = navigation.addListener('focus', fetchNotifications);
+  useEffect(() => {
     fetchNotifications();
-
-    return unsubscribe;
-  }, [navigation]);
+  }, []);
 
   const fetchNotifications = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Fetch the current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
-      
-      if (user) {
-        const { data, error } = await supabase
-          .from('notifications')
-          .select('*')
-          .eq('user_id', user.id) // Using the fetched user ID
-          .order('created_at', { ascending: false });
-  
-        if (error) throw error;
-        setNotifications(data || []);
-      } else {
-        console.log("No authenticated user found.");
-        setNotifications([]);
-      }
-    } catch (error) {
-      console.error("Error fetching notifications:", error.message);
-      setError("Failed to load notifications.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('announcements')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchNotifications();
-  };
-
-  const handleNotificationPress = (notification) => {
-    // Direct to details page based on notification type
-    if (notification.auction_id) {
-      navigation.navigate('LivestockAuctionDetailPage', { itemId: notification.auction_id });
+    if (error) {
+      console.error('Error fetching notifications:', error.message);
+      setError('Failed to load notifications');
     } else {
-      console.log('No associated transaction for this notification.');
+      setNotifications(data);
+      setError(null); // Clear previous errors on success
     }
+    setLoading(false);
+    setRefreshing(false);
   };
 
   const handleTabChange = (tab) => {
@@ -77,11 +48,26 @@ const NotificationPage = ({ navigation }) => {
     navigation.goBack();
   };
 
+  const handleNotificationPress = (notification) => {
+    console.log('Notification clicked:', notification);
+    // Implement navigation or action based on notification details
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchNotifications();
+  };
+
+  // Filter notifications based on active tab
+  const filteredNotifications =
+    activeTab === 'Recent' ? notifications.slice(0, 5) : notifications;
+
   const renderNotificationItem = ({ item }) => (
     <TouchableOpacity onPress={() => handleNotificationPress(item)}>
       <View style={styles.notificationItem}>
-        <Text style={styles.notificationText}>{item.message}</Text>
-        <Text style={styles.notificationDate}>{new Date(item.created_at).toLocaleString()}</Text>
+        <Text style={styles.contentText}>
+          {item.text} - {new Date(item.created_at).toLocaleString()}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -119,17 +105,20 @@ const NotificationPage = ({ navigation }) => {
       {/* Content */}
       <View style={styles.contentContainer}>
         {loading ? (
-          <Text>Loading...</Text>
+          <View style={styles.centeredView}>
+            <ActivityIndicator size="large" color="#257446" />
+            <Text>Loading...</Text>
+          </View>
         ) : error ? (
           <Text style={styles.errorText}>{error}</Text>
         ) : (
           <FlatList
-            data={activeTab === 'Recent' ? notifications.slice(0, 5) : notifications}
+            data={filteredNotifications}
             keyExtractor={(item) => item.id.toString()}
             renderItem={renderNotificationItem}
-            ListEmptyComponent={<Text>No notifications to show.</Text>}
+            ListEmptyComponent={<Text style={styles.contentText}>No notifications available</Text>}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }
           />
         )}
@@ -178,6 +167,11 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
+  centeredView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   notificationItem: {
     padding: 15,
     backgroundColor: '#FFFFFF',
@@ -188,20 +182,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
   },
-  notificationText: {
+  contentText: {
     fontSize: 16,
     color: '#333',
-  },
-  notificationDate: {
-    fontSize: 12,
-    color: '#888',
-    marginTop: 5,
   },
   errorText: {
     fontSize: 16,
     color: 'red',
     textAlign: 'center',
-    marginTop: 20,
   },
 });
 
