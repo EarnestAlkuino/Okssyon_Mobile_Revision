@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Alert, Image } from 'react-native';
 import Button from '../Components/Button'; // Reusable button component
 import { supabase } from '../supabase'; // Assuming you have configured Supabase
 
@@ -12,19 +12,17 @@ const LoginPage = ({ navigation }) => {
   async function signInWithEmail() {
     setLoading(true);
 
-    // Sign in using Supabase's auth system
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email,
       password: password,
     });
 
     if (error) {
-      Alert.alert("Login Error", error.message); // Show alert for error
+      Alert.alert("Login Error", error.message);
       setLoading(false);
-      return; // Exit the function if there is an error
+      return;
     }
 
-    // Ensure that data and user exist
     const user = data?.user;
 
     if (!user) {
@@ -33,11 +31,10 @@ const LoginPage = ({ navigation }) => {
       return;
     }
 
-    // Fetch user profile after successful login
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('full_name')
-      .eq('id', user.id) // Use user.id to query the profile
+      .eq('id', user.id)
       .single();
 
     if (profileError) {
@@ -46,16 +43,22 @@ const LoginPage = ({ navigation }) => {
       return;
     }
 
-    // Show welcome message with user's full name
     Alert.alert(`Welcome, ${profile.full_name}!`);
-    // Pass userId to MainTabs so it can propagate through other screens
     navigation.navigate('MainTabs', { userId: user.id });
-
     setLoading(false);
   }
 
   return (
     <View style={styles.container}>
+      {/* Logo */}
+      <Image source={require('../assets/logo1.png')} style={styles.logo} />
+
+      {/* Welcome and Subtext */}
+      <View style={styles.textContainer}>
+        <Text style={styles.welcomeText}>Welcome!</Text>
+        <Text style={styles.subText}>Sign in to continue</Text>
+      </View>
+
       {/* Input fields */}
       <View style={styles.inputContainer}>
         <TextInput
@@ -75,12 +78,14 @@ const LoginPage = ({ navigation }) => {
           onChangeText={setPassword}
           autoCapitalize="none"
         />
-        <Button
-          title="Forgot Password?"
-          onPress={() => navigation.navigate('ForgotPasswordScreen')}
-          style={{ backgroundColor: 'transparent' }}
-          textStyle={styles.forgotPasswordText}
-        />
+        <View style={styles.forgotPasswordContainer}>
+          <Button
+            title="Forgot Password?"
+            onPress={() => navigation.navigate('ForgotPasswordScreen')}
+            style={styles.forgotPasswordButton}
+            textStyle={styles.forgotPasswordText}
+          />
+        </View>
       </View>
 
       {/* Login Button */}
@@ -92,16 +97,13 @@ const LoginPage = ({ navigation }) => {
         disabled={loading}
       />
 
-      {/* OR Text */}
-      <Text style={styles.orText}>OR</Text>
-
       {/* Sign Up Navigation */}
       <View style={styles.signUpContainer}>
-        <Text style={styles.signUpPrompt}>Don't have an account?</Text>
+        <Text style={styles.signUpPrompt}>Don't have an account? </Text>
         <Button
           title="Sign Up"
-          onPress={() => navigation.navigate('SignUpPage')} // Navigate to SignUpPage
-          style={{ backgroundColor: 'transparent' }}
+          onPress={() => navigation.navigate('SignUpPage')}
+          style={styles.signUpButton}
           textStyle={styles.signUpText}
         />
       </View>
@@ -114,49 +116,77 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     backgroundColor: '#fff',
+  },
+  logo: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    width: 140,
+    height: 80,
+    resizeMode: 'contain',
+    marginBottom: 20,
+  },
+  textContainer: {
+    alignItems: 'flex-start',
+    width: '100%',
+    marginBottom: 30,
+  },
+  welcomeText: {
+    fontSize: 30,
+    fontWeight: 'bold',
+    color: '#335441',
+    marginBottom: 5,
+  },
+  subText: {
+    fontSize: 16,
+    color: '#808080',
   },
   inputContainer: {
     width: '100%',
-    marginBottom: 10,
+    marginBottom: 20,
   },
   input: {
     height: 45,
     borderWidth: 1,
-    borderColor: '#335441', // Dark green border color
+    borderColor: '#335441',
     borderRadius: 10,
     paddingHorizontal: 10,
     marginBottom: 15,
   },
+  forgotPasswordContainer: {
+    alignItems: 'flex-end',
+  },
+  forgotPasswordButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 0,
+  },
   forgotPasswordText: {
-    alignSelf: 'flex-end',
-    color: '#808080', // Light grey text
+    color: '#808080',
+    fontSize: 15,
   },
   loginButton: {
     width: '100%',
-    backgroundColor: '#335441', // Dark green background
-    paddingVertical: 10,
+    backgroundColor: '#335441',
+    paddingVertical: 12,
     borderRadius: 10,
-    marginBottom: 20,
-    alignItems: 'center',
   },
   loginButtonText: {
     color: '#fff',
     fontSize: 15,
     fontWeight: 'bold',
-  },
-  orText: {
-    fontSize: 16,
-    color: '#808080',
-    marginVertical: 20,
+    textAlign: 'center',
   },
   signUpContainer: {
     flexDirection: 'row',
-    marginTop: 20,
+    alignItems: 'center',
   },
   signUpPrompt: {
     color: '#808080',
+  },
+  signUpButton: {
+    backgroundColor: 'transparent',
   },
   signUpText: {
     color: '#335441',

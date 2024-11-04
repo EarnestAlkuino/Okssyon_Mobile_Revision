@@ -61,8 +61,10 @@ const SignUpPage = ({ navigation }) => {
       <Image source={require('../assets/logo1.png')} style={styles.logo} />
 
       {/* Welcome Text */}
-      <Text style={styles.welcomeText}>Create Account!</Text>
-      <Text style={styles.subText}>Sign up to get started</Text>
+      <View style={styles.textContainer}>
+        <Text style={styles.welcomeText}>Create Account!</Text>
+        <Text style={styles.subText}>Sign up to get started</Text>
+      </View>
 
       {/* Input fields */}
       <View style={styles.inputContainer}>
@@ -103,13 +105,15 @@ const SignUpPage = ({ navigation }) => {
       </View>
 
       {/* Sign Up Button */}
-      <Button
-        title="Sign Up"
-        style={styles.signUpButton}
-        textStyle={styles.signUpButtonText}
-        onPress={signUpWithEmail}
-        disabled={loading}
-      />
+      <View style={styles.buttonContainer}>
+        <Button
+          title="Sign Up"
+          style={styles.signUpButton}
+          textStyle={styles.signUpButtonText}
+          onPress={signUpWithEmail}
+          disabled={loading}
+        />
+      </View>
 
       {/* Already have an account? */}
       <View style={styles.loginContainer}>
@@ -117,7 +121,7 @@ const SignUpPage = ({ navigation }) => {
         <Button
           title="Log In"
           onPress={() => navigation.navigate('LoginPage')} // Navigate to LoginPage
-          style={{ backgroundColor: 'transparent' }}
+          style={styles.loginButton}
           textStyle={styles.loginText}
         />
       </View>
@@ -130,14 +134,22 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start', // Align items to the start (left)
     backgroundColor: '#fff',
   },
   logo: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
     width: 140,
     height: 80,
     resizeMode: 'contain',
     marginBottom: 20,
+  },
+  textContainer: {
+    alignItems: 'flex-start', // Align text to the left
+    width: '100%', // Make sure it takes full width
+    marginBottom: 30, // Space between the texts and input fields
   },
   welcomeText: {
     fontSize: 30,
@@ -148,7 +160,6 @@ const styles = StyleSheet.create({
   subText: {
     fontSize: 16,
     color: '#808080', // Light grey text
-    marginBottom: 30,
   },
   inputContainer: {
     width: '100%',
@@ -162,25 +173,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     marginBottom: 15,
   },
+  buttonContainer: {
+    width: '100%', // Full width for the button container
+    alignItems: 'flex-start', // Align button to the left
+  },
   signUpButton: {
-    width: '100%',
     backgroundColor: '#335441', // Dark green background
     paddingVertical: 10,
     borderRadius: 10,
-    marginBottom: 20,
-    alignItems: 'center',
+    width: '100%', // Full width for the button
   },
   signUpButtonText: {
     color: '#fff',
     fontSize: 15,
     fontWeight: 'bold',
+    textAlign: 'center', // Center text inside the button
   },
   loginContainer: {
     flexDirection: 'row',
-    marginTop: 20,
+    alignItems: 'center', 
   },
   loginPrompt: {
     color: '#808080',
+  },
+  loginButton: {
+    backgroundColor: 'transparent',
   },
   loginText: {
     color: '#335441',

@@ -1,40 +1,37 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../supabase';
-
 import CattleIcon from '../assets/Cattle1.svg';
 import HorseIcon from '../assets/Horse1.svg';
 import SheepIcon from '../assets/Sheep1.svg';
 import CarabaoIcon from '../assets/Carabao1.svg';
 import GoatIcon from '../assets/Goat1.svg';
 import PigIcon from '../assets/Pig1.svg';
+import logo from '../assets/logo1.png';
 
 const HomePage = ({ navigation, route }) => {
-  const { userId: userIdFromRoute } = route.params || {}; // Get userId from navigation params if passed
+  const { userId: userIdFromRoute } = route.params || {};
   const [userName, setUserName] = useState('');
   const [loading, setLoading] = useState(true);
   const [announcement, setAnnouncement] = useState('Upcoming Auction!');
   const [announcementDate, setAnnouncementDate] = useState('October 20, 2024');
 
   useEffect(() => {
-    // Function to fetch user profile data
     const fetchUserName = async () => {
       let userId = userIdFromRoute;
 
-      // If userId is not passed as a route param, fallback to fetching it from the auth session
       if (!userId) {
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError || !user) {
           Alert.alert('Error', userError?.message || 'No user found. Please log in again.');
-          navigation.navigate('LoginPage'); // Redirect to login if no user found
+          navigation.navigate('LoginPage');
           return;
         }
         userId = user.id;
       }
 
-      // Fetch the user's name from the 'profiles' table based on userId
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('full_name')
@@ -46,8 +43,8 @@ const HomePage = ({ navigation, route }) => {
       } else {
         setUserName(profileData.full_name);
       }
-      
-      setLoading(false); // Stop loading
+
+      setLoading(false);
     };
 
     fetchUserName();
@@ -69,7 +66,7 @@ const HomePage = ({ navigation, route }) => {
       <TouchableOpacity
         style={styles.iconButton}
         onPress={() => {
-          console.log("Navigating to AuctionPage with category:", item.title, "and userId:", userIdFromRoute); // Debugging
+          console.log("Navigating to AuctionPage with category:", item.title, "and userId:", userIdFromRoute);
           navigation.navigate('AuctionPage', { category: item.title, userId: userIdFromRoute });
         }}
       >
@@ -93,13 +90,17 @@ const HomePage = ({ navigation, route }) => {
   return (
     <View style={styles.container}>
       <View style={styles.topSection}>
-        <Text style={styles.helloText}>Hello, {userName}</Text>
+        <View>
+          <Text style={styles.helloText}>Hello, {userName}</Text>
+          <Text style={styles.welcomeText}>Welcome! You can start bidding now.</Text>
+        </View>
         <TouchableOpacity style={styles.searchIcon} onPress={() => navigation.navigate('SearchPage')}>
           <Ionicons name="search" size={24} color="#405e40" />
         </TouchableOpacity>
       </View>
 
-      {/* Announcement Banner */}
+      <Image source={logo} style={styles.logo} />
+
       <LinearGradient
         colors={['rgba(185, 211, 112, 0.8)', 'rgba(113, 186, 144, 0.8)']}
         style={styles.announcementBanner}
@@ -114,8 +115,7 @@ const HomePage = ({ navigation, route }) => {
         </TouchableOpacity>
       </LinearGradient>
 
-      {/* Livestock Selection Label */}
-      <Text style={styles.selectionLabel}>LIVESTOCK AUCTION SELECTION</Text>
+      <Text style={styles.selectionLabel}>Livestock Auction Selection</Text>
 
       <FlatList
         data={auctionCategories}
@@ -124,6 +124,7 @@ const HomePage = ({ navigation, route }) => {
         numColumns={3}
         columnWrapperStyle={styles.columnWrapper}
         contentContainerStyle={styles.grid}
+        style={styles.flatList}
       />
     </View>
   );
@@ -147,8 +148,21 @@ const styles = StyleSheet.create({
     color: '#405e40',
     fontWeight: 'bold',
   },
+  welcomeText: {
+    fontSize: 14,
+    color: '#405e40',
+    marginTop: 4,
+  },
   searchIcon: {
     padding: 5,
+  },
+  logo: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    width: 100,
+    height: 60,
+    resizeMode: 'contain',
   },
   announcementBanner: {
     borderRadius: 10,
@@ -189,31 +203,37 @@ const styles = StyleSheet.create({
   },
   selectionLabel: {
     textAlign: 'left',
-    fontSize: 16,
+    fontSize: 20,
     color: '#405e40',
     fontWeight: 'bold',
     marginLeft: 20,
-    marginBottom: 20,
+    marginTop: 10,
   },
   iconButton: {
     flex: 1,
     alignItems: 'center',
-    marginVertical: 15,
-    width: '30%',
+    marginVertical: 10,
+    marginHorizontal: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingVertical: 20,
+    paddingHorizontal: 50,
+    paddingBottom: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 2,
   },
   iconContainer: {
-    width: 105,
-    height: 150,
-    justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 10,
-    backgroundColor: '#FFFFFF',
   },
   categoryTitle: {
-    fontSize: 20,
+    fontSize: 18,
     color: '#405e40',
     fontWeight: 'bold',
     textAlign: 'center',
+    marginTop: 5,
   },
   loadingContainer: {
     flex: 1,
@@ -221,12 +241,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   columnWrapper: {
-    justifyContent: 'space-between',
-    marginBottom: -12,
+    justifyContent: 'space-around',
+    paddingHorizontal: 10,
   },
   grid: {
-    paddingBottom: 10,
-    paddingHorizontal: 10,
+    paddingBottom: 250,
+  },
+  flatList: {
+    flex: 1,
   },
 });
 

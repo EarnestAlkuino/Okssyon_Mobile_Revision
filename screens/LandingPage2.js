@@ -9,9 +9,9 @@ const LandingPage2 = ({ navigation }) => {
       
 
       <Text style={styles.tagline}>
-      <Text style={styles.highlightedText1}>farmers</Text> 
+      <Text style={styles.highlightedText1}>Empowering </Text> 
       <Text style={styles.highlightedText2}>farmers</Text>, 
-      <Text style={styles.highlightedText3}>Tranforming</Text> 
+      <Text style={styles.highlightedText3}>Tranforming </Text> 
       <Text style={styles.highlightedText4}>auctions</Text>.
       </Text>
 
@@ -55,13 +55,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   highlightedText1: {
-    color: '#DFAE47', 
+    color: '#DFAE47',
   },
   highlightedText2: {
     color: '#335441', 
   },
   highlightedText3: {
-    color: '#DFAE47', 
+    color: '#DFAE47',
   },
   highlightedText4: {
     color: '#335441', 
