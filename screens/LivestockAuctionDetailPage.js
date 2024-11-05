@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Image, TextInput, RefreshControl, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Image, TextInput, RefreshControl, ScrollView, SafeAreaView } from 'react-native';
 import { supabase } from '../supabase';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -123,82 +123,94 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
     );
   }
 
+  const formattedEndTime = item?.auction_end_time
+    ? new Date(item.auction_end_time).toLocaleString()
+    : 'Not available';
+
   return (
-    <ScrollView
-      contentContainerStyle={styles.contentWrapper}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      <View style={styles.imageContainer}>
-        <Ionicons
-          name="arrow-back"
-          size={24}
-          color="white"
-          style={styles.backIcon}
-          onPress={() => navigation.goBack()}
-        />
-        {imageLoading && <ActivityIndicator size="large" color="#405e40" style={styles.imageLoader} />}
-        <Image
-          style={styles.mainImage}
-          source={{ uri: item.image_url || 'https://via.placeholder.com/300' }}
-          onLoadEnd={() => setImageLoading(false)}
-        />
-      </View>
-
-      <View style={styles.detailContainer}>
-        <Text style={styles.categoryText}>{item.category?.toUpperCase()}</Text>
-
-        <View style={styles.attributesContainer}>
-          <Text style={styles.label}>Weight:</Text>
-          <Text>{item.weight} kg</Text>
-          <Text style={styles.label}>Breed:</Text>
-          <Text>{item.breed}</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        contentContainerStyle={styles.contentWrapper}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        <View style={styles.imageContainer}>
+          <Ionicons
+            name="arrow-back"
+            size={24}
+            color="white"
+            style={styles.backIcon}
+            onPress={() => navigation.goBack()}
+          />
+          {imageLoading && <ActivityIndicator size="large" color="#405e40" style={styles.imageLoader} />}
+          <Image
+            style={styles.mainImage}
+            source={{ uri: item.image_url || 'https://via.placeholder.com/300' }}
+            onLoadEnd={() => setImageLoading(false)}
+          />
         </View>
 
-        <View style={styles.sellerContainer}>
-          <Image style={styles.avatar} source={{ uri: 'https://via.placeholder.com/50' }} />
-          <View style={styles.sellerInfo}>
-            <Text style={styles.label}>Seller: <Text style={styles.infoText}>{item.profiles?.full_name || 'Unknown'}</Text></Text>
-            <Text style={styles.label}>Location: <Text style={styles.infoText}>{item.location}</Text></Text>
+        <View style={styles.detailContainer}>
+          <Text style={styles.categoryText}>{item.category?.toUpperCase()}</Text>
+
+          <View style={styles.attributesContainer}>
+            <View style={styles.attribute}>
+              <Text style={styles.label}>Weight:</Text>
+              <Text>{item.weight} kg</Text>
+            </View>
+            <View style={styles.attribute}>
+              <Text style={styles.label}>Breed:</Text>
+              <Text>{item.breed}</Text>
+            </View>
+          </View>
+
+          <View style={styles.sellerContainer}>
+            <Image style={styles.avatar} source={{ uri: 'https://via.placeholder.com/50' }} />
+            <View style={styles.sellerInfo}>
+              <Text style={styles.label}>Seller: <Text style={styles.infoText}>{item.profiles?.full_name || 'Unknown'}</Text></Text>
+              <Text style={styles.label}>Location: <Text style={styles.infoText}>{item.location}</Text></Text>
+            </View>
+          </View>
+
+          <View style={styles.priceContainer}>
+            <Text style={styles.label}>Starting Price</Text>
+            <TextInput style={styles.priceText} value={`₱${item.starting_price?.toLocaleString()}`} editable={false} />
+            
+            <Text style={styles.label}>Highest Bid</Text>
+            <TextInput style={styles.priceText} value={`₱${latestBid?.toLocaleString()}`} editable={false} />
+
+            <Text style={styles.label}>Auction Ends At</Text>
+            <Text style={styles.endTimeText}>{formattedEndTime}</Text>
+          </View>
+
+          <View style={styles.buttonContainer}>
+            {isCreator ? (
+              <>
+                <TouchableOpacity style={styles.deleteButton} onPress={() => handleAction("Delete")}>
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.editButton} onPress={() => handleAction("Edit")}>
+                  <Text style={styles.editButtonText}>Edit</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity style={styles.bidButton} onPress={() => handleAction("Bid")}>
+                  <Text style={styles.bidButtonText}>Bid</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.chatButton} onPress={() => handleAction("Chat")}>
+                  <Text style={styles.chatButtonText}>Chat</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
-
-        <View style={styles.priceContainer}>
-          <Text style={styles.label}>Starting Price</Text>
-          <TextInput style={styles.priceText} value={`₱${item.starting_price?.toLocaleString()}`} editable={false} />
-          
-          <Text style={styles.label}>Highest Bid</Text>
-          <TextInput style={styles.priceText} value={`₱${latestBid?.toLocaleString()}`} editable={false} />
-
-          <Text style={styles.timeRemaining}>Time Remaining: {item.time_remaining}</Text>
-        </View>
-
-        <View style={styles.buttonContainer}>
-          {isCreator ? (
-            <>
-              <TouchableOpacity style={styles.deleteButton} onPress={() => handleAction("Delete")}>
-                <Text style={styles.deleteButtonText}>Delete</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.editButton} onPress={() => handleAction("Edit")}>
-                <Text style={styles.editButtonText}>Edit</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <TouchableOpacity style={styles.bidButton} onPress={() => handleAction("Bid")}>
-                <Text style={styles.bidButtonText}>Bid</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.chatButton} onPress={() => handleAction("Chat")}>
-                <Text style={styles.chatButtonText}>Chat</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: '#fff' },
   contentWrapper: { flex: 1, backgroundColor: '#fff' },
   imageContainer: {
     width: '100%',
@@ -232,9 +244,13 @@ const styles = StyleSheet.create({
   attributesContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 20,
+    marginBottom: 10, // Adjusted spacing
   },
-  label: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 1 },
+  attribute: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  label: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 2 },
   sellerContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   avatar: { width: 50, height: 50, borderRadius: 25, marginRight: 10 },
   sellerInfo: { flex: 1 },
@@ -250,7 +266,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginBottom: 10,
   },
-  timeRemaining: { textAlign: 'left', color: '#777', marginBottom: 10 },
+  endTimeText: { fontSize: 16, color: '#777', textAlign: 'left', marginBottom: 10 },
   buttonContainer: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 2 },
   deleteButton: {
     borderColor: '#335441',

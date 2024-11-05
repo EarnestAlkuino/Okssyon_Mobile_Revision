@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import Header from '../Components/Header';
-import { supabase } from '../supabase'; // Ensure this is the correct path for Supabase client
+import { supabase } from '../supabase';
 
 const NotificationPage = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState('Recent');
   const [notifications, setNotifications] = useState([]);
+  const [announcements, setAnnouncements] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -20,12 +21,13 @@ const NotificationPage = ({ navigation }) => {
 
   useEffect(() => {
     fetchNotifications();
+    fetchAnnouncements();
   }, []);
 
   const fetchNotifications = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from('announcements')
+      .from('notifications')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -34,10 +36,24 @@ const NotificationPage = ({ navigation }) => {
       setError('Failed to load notifications');
     } else {
       setNotifications(data);
-      setError(null); // Clear previous errors on success
+      setError(null);
     }
     setLoading(false);
-    setRefreshing(false);
+  };
+
+  const fetchAnnouncements = async () => {
+    const { data, error } = await supabase
+      .from('announcements')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching announcements:', error.message);
+      setError('Failed to load announcements');
+    } else {
+      setAnnouncements(data);
+      setError(null);
+    }
   };
 
   const handleTabChange = (tab) => {
@@ -50,23 +66,28 @@ const NotificationPage = ({ navigation }) => {
 
   const handleNotificationPress = (notification) => {
     console.log('Notification clicked:', notification);
-    // Implement navigation or action based on notification details
+    if (notification.action_url) {
+      navigation.navigate(notification.action_url);
+    }
   };
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchNotifications();
+    fetchAnnouncements();
+    setRefreshing(false);
   };
 
-  // Filter notifications based on active tab
-  const filteredNotifications =
-    activeTab === 'Recent' ? notifications.slice(0, 5) : notifications;
+  // Combine notifications and announcements based on the active tab
+  const allItems = [...notifications, ...announcements];
+  const filteredItems =
+    activeTab === 'Recent' ? allItems.slice(0, 5) : allItems;
 
   const renderNotificationItem = ({ item }) => (
     <TouchableOpacity onPress={() => handleNotificationPress(item)}>
       <View style={styles.notificationItem}>
         <Text style={styles.contentText}>
-          {item.text} - {new Date(item.created_at).toLocaleString()}
+          {item.message || item.text} - {new Date(item.created_at).toLocaleString()}
         </Text>
       </View>
     </TouchableOpacity>
@@ -113,7 +134,7 @@ const NotificationPage = ({ navigation }) => {
           <Text style={styles.errorText}>{error}</Text>
         ) : (
           <FlatList
-            data={filteredNotifications}
+            data={filteredItems}
             keyExtractor={(item) => item.id.toString()}
             renderItem={renderNotificationItem}
             ListEmptyComponent={<Text style={styles.contentText}>No notifications available</Text>}

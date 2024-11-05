@@ -141,7 +141,8 @@ const PostPage = ({ navigation }) => {
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <View style={styles.formContainer}>
 
-        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Category</Text>
+          <View style={styles.inputContainer}>
             <Picker
               selectedValue={category}
               onValueChange={(itemValue) => setCategory(itemValue)}
@@ -153,6 +154,18 @@ const PostPage = ({ navigation }) => {
               <Picker.Item label="PIG" value="Pig" />
               <Picker.Item label="SHEEP" value="Sheep" />
               <Picker.Item label="GOAT" value="Goat" />
+            </Picker>
+          </View>
+
+          <Text style={styles.label}>Gender</Text>
+          <View style={styles.inputContainer}>
+            <Picker
+              selectedValue={gender}
+              onValueChange={(itemValue) => setGender(itemValue)}
+              style={styles.picker}
+            >
+              <Picker.Item label="Female" value="female" />
+              <Picker.Item label="Male" value="male" />
             </Picker>
           </View>
           
@@ -205,7 +218,7 @@ const PostPage = ({ navigation }) => {
             onChangeText={setLocation}
           />
 
-<TouchableOpacity onPress={() => pickDocument(setProofOfOwnership)} style={styles.documentUploadButton}>
+          <TouchableOpacity onPress={() => pickDocument(setProofOfOwnership)} style={styles.documentUploadButton}>
             <View style={styles.iconTextContainer}>
               <Ionicons name="document-outline" size={20} color="#888" />
               <Text style={styles.documentUploadText}>Upload Proof of Ownership</Text>
@@ -269,8 +282,13 @@ const styles = StyleSheet.create({
   formContainer: {
     backgroundColor: '#fff',
     borderRadius: 15,
-    marginBottom: 0,
     padding: 15,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 5,
+    color: '#333',
   },
   uploadButton: {
     width: '100%',
@@ -343,7 +361,6 @@ const styles = StyleSheet.create({
     marginLeft: 5,
     fontSize: 14,
     justifyContent: 'center',
-  
   },
   buttonContainer: {
     flexDirection: 'row',
