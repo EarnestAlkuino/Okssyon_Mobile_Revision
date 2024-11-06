@@ -8,7 +8,7 @@ const Pns2 = () => {
       weightRange: '500-600 kg',
       prices: [
         { label: 'Fattener', value: '138.66 - 154.28 per kg' },
-        { label: 'Estmtd Dressed weight', value: '300.00-320.00 per kg' },
+        { label: 'Estimated Dressed weight', value: '300.00-320.00 per kg' },
         { label: 'Liveweight', value: '200.00-205.00 per kg' },
       ],
     },
@@ -17,7 +17,7 @@ const Pns2 = () => {
       weightRange: '220-330 kg',
       prices: [
         { label: 'Fattener', value: '138.66 - 154.28 per kg' },
-        { label: 'Estmtd Dressed weight', value: '300.00-320.00 per kg' },
+        { label: 'Estimated Dressed weight', value: '300.00-320.00 per kg' },
         { label: 'Liveweight', value: '200.00-205.00 per kg' },
       ],
     },
@@ -26,7 +26,7 @@ const Pns2 = () => {
       weightRange: '500-600 kg',
       prices: [
         { label: 'Fattener', value: '138.66 - 154.28 per kg' },
-        { label: 'Estmtd Dressed weight', value: '300.00-320.00 per kg' },
+        { label: 'Estimated Dressed weight', value: '300.00-320.00 per kg' },
         { label: 'Liveweight', value: '200.00-205.00 per kg' },
       ],
     },
@@ -35,7 +35,7 @@ const Pns2 = () => {
       weightRange: '90-110 kg',
       prices: [
         { label: 'Fattener', value: '180.00-200.00 per kg' },
-        { label: 'Estmtd Dressed weight', value: '360.00-380.00 per kg' },
+        { label: 'Estimated Dressed weight', value: '360.00-380.00 per kg' },
         { label: 'Liveweight', value: '240.00-260.00 per kg' },
       ],
     },
@@ -44,7 +44,7 @@ const Pns2 = () => {
       weightRange: '40-60 kg',
       prices: [
         { label: 'Fattener', value: '140.00-160.00 per kg' },
-        { label: 'Estmtd Dressed weight', value: '280.00-300.00 per kg' },
+        { label: 'Estimated Dressed weight', value: '280.00-300.00 per kg' },
         { label: 'Liveweight', value: '180.00-200.00 per kg' },
       ],
     },
@@ -52,7 +52,7 @@ const Pns2 = () => {
       animal: 'Goat',
       weightRange: '500-600 kg',
       prices: [
-        { label: 'Estmtd Dressed weight', value: '300.00-320.00 per kg' },
+        { label: 'Estimated Dressed weight', value: '300.00-320.00 per kg' },
         { label: 'Liveweight', value: '200.00-205.00 per kg' },
       ],
     },
