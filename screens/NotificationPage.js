@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import Header from '../Components/Header';
-import { supabase } from '../supabase'; // Import Supabase instance
+import { supabase } from '../supabase';
 
 const NotificationPage = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState('Recent');
@@ -26,7 +26,7 @@ const NotificationPage = ({ navigation }) => {
   const fetchNotifications = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from('notifications') // Replace with your notifications table name
+      .from('notifications')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -42,7 +42,7 @@ const NotificationPage = ({ navigation }) => {
 
   const fetchAnnouncements = async () => {
     const { data, error } = await supabase
-      .from('announcements') // Replace with your announcements table name
+      .from('announcements')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -66,10 +66,21 @@ const NotificationPage = ({ navigation }) => {
   const handleNotificationPress = (notification) => {
     console.log('Notification clicked:', notification);
     if (notification.livestock_id) {
-      navigation.navigate('LivestockAuctionDetailPage', { livestock_id: notification.livestock_id });
+      navigation.navigate('LivestockAuctionDetailPage', { itemId: notification.livestock_id, userId: notification.user_id });
+    } else {
+      console.warn("No livestock_id found in notification.");
     }
   };
   
+  const renderNotificationItem = ({ item }) => (
+    <TouchableOpacity onPress={() => handleNotificationPress(item)}>
+      <View style={styles.notificationItem}>
+        <Text style={styles.contentText}>
+          {item.message || item.text} - {new Date(item.created_at).toLocaleString()}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -80,18 +91,7 @@ const NotificationPage = ({ navigation }) => {
 
   // Combine notifications and announcements based on the active tab
   const allItems = [...notifications, ...announcements];
-  const filteredItems =
-    activeTab === 'Recent' ? allItems.slice(0, 5) : allItems;
-
-  const renderNotificationItem = ({ item }) => (
-    <TouchableOpacity onPress={() => handleNotificationPress(item)}>
-      <View style={styles.notificationItem}>
-        <Text style={styles.contentText}>
-          {item.message || item.text} - {new Date(item.created_at).toLocaleString()}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
+  const filteredItems = activeTab === 'Recent' ? allItems.slice(0, 5) : allItems;
 
   return (
     <View style={styles.container}>
@@ -134,15 +134,14 @@ const NotificationPage = ({ navigation }) => {
           <Text style={styles.errorText}>{error}</Text>
         ) : (
           <FlatList
-          data={filteredItems}
-          keyExtractor={(item, index) => (item.id ? item.id.toString() : index.toString())}
-          renderItem={renderNotificationItem}
-          ListEmptyComponent={<Text style={styles.contentText}>No notifications available</Text>}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        />
-        
+            data={filteredItems}
+            keyExtractor={(item, index) => (item.id ? item.id.toString() : index.toString())}
+            renderItem={renderNotificationItem}
+            ListEmptyComponent={<Text style={styles.contentText}>No notifications available</Text>}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          />
         )}
       </View>
     </View>

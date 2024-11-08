@@ -5,12 +5,12 @@ import { supabase } from '../supabase';
 
 const AuctionPage = ({ navigation, route }) => {
   const { category, userId } = route.params;
-  const isFocused = useIsFocused(); // Check if the screen is focused
+  const isFocused = useIsFocused();
   const [livestockData, setLivestockData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchLivestockData = async () => {
-    console.log("Fetching data for category:", category); // Log the category being fetched
+    console.log("Fetching data for category:", category);
     setLoading(true);
 
     try {
@@ -20,14 +20,14 @@ const AuctionPage = ({ navigation, route }) => {
         .eq('category', category);
 
       if (error) {
-        console.error("Error fetching data:", error.message); // Log any error messages
+        console.error("Error fetching data:", error.message);
         Alert.alert("Error", `Failed to fetch livestock data: ${error.message}`);
       } else {
-        console.log("Fetched livestock data:", data); // Log the fetched data
+        console.log("Fetched livestock data:", data);
         setLivestockData(data);
       }
     } catch (err) {
-      console.error("Unexpected error:", err); // Log unexpected errors
+      console.error("Unexpected error:", err);
     }
 
     setLoading(false);
@@ -40,13 +40,13 @@ const AuctionPage = ({ navigation, route }) => {
   }, [isFocused, category, userId]);
 
   const handleLivestockSelect = useCallback((item) => {
-    navigation.navigate('LivestockAuctionDetailPage', { itemId: item.livestock_id || item.id, userId });
-  }, [navigation, userId]);
+    navigation.navigate('LivestockAuctionDetailPage', { itemId: item.livestock_id, userId });
 
+  });
   const renderItem = useCallback(({ item }) => (
     <TouchableOpacity style={styles.card} onPress={() => handleLivestockSelect(item)}>
       <Image
-        source={{ uri: item.image_url || 'https://via.placeholder.com/100' }} // Use image_url as per the table schema
+        source={{ uri: item.image_url || 'https://via.placeholder.com/100' }}
         style={styles.image}
       />
       <View style={styles.infoContainer}>
@@ -73,12 +73,12 @@ const AuctionPage = ({ navigation, route }) => {
     <View style={styles.container}>
       <Text style={styles.header}>Available {category}</Text>
       {livestockData.length > 0 ? (
-       <FlatList
-         data={livestockData}
-         renderItem={renderItem}
-         keyExtractor={(item, index) => (item.livestock_id ? item.livestock_id.toString() : index.toString())} // Use livestock_id or id as primary key
-         contentContainerStyle={styles.listContainer}
-       />     
+        <FlatList
+          data={livestockData}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.livestock_id.toString()}
+          contentContainerStyle={styles.listContainer}
+        />
       ) : (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No livestock available in this category.</Text>
