@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput, Image, ScrollView, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../supabase';
 import Header from '../Components/Header';
+import { supabase } from '../supabase'; // Import Supabase client
 
 const PostPage = ({ navigation }) => {
   const [category, setCategory] = useState('');
@@ -14,16 +14,29 @@ const PostPage = ({ navigation }) => {
   const [image, setImage] = useState(null);
   const [proofOfOwnership, setProofOfOwnership] = useState(null);
   const [vetCertificate, setVetCertificate] = useState(null);
-  const [date, setDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [auctionStart, setAuctionStart] = useState(new Date());
+  const [auctionEnd, setAuctionEnd] = useState(new Date());
+  const [isAuctionStartPickerVisible, setAuctionStartPickerVisible] = useState(false);
+  const [isAuctionEndPickerVisible, setAuctionEndPickerVisible] = useState(false);
   const [breedInput, setBreedInput] = useState('');
   const [ageInput, setAgeInput] = useState('');
   const [weightInput, setWeightInput] = useState('');
   const [startingPriceInput, setStartingPriceInput] = useState('');
   const [location, setLocation] = useState('');
+  const [userId, setUserId] = useState(null);
 
-  // Function to pick an image
+  useEffect(() => {
+    const fetchUserId = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+      } else {
+        Alert.alert("Error", "User not authenticated");
+      }
+    };
+    fetchUserId();
+  }, []);
+
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
@@ -43,7 +56,6 @@ const PostPage = ({ navigation }) => {
     }
   };
 
-  // Function to pick documents
   const pickDocument = async (setDocument) => {
     let result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
     if (result.type === 'success') {
@@ -51,83 +63,62 @@ const PostPage = ({ navigation }) => {
     }
   };
 
-  // Function to upload files to Supabase storage
-  const uploadFile = async (uri, bucketName, fileName) => {
-    try {
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      const { data, error } = await supabase.storage
-        .from(bucketName)
-        .upload(fileName, blob, { contentType: blob.type });
-
-      if (error) throw error;
-      return supabase.storage.from(bucketName).getPublicUrl(fileName).data.publicUrl;
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      return null;
-    }
+  const handleAuctionStartConfirm = (date) => {
+    setAuctionStart(date);
+    setAuctionStartPickerVisible(false);
   };
 
-  // Function to handle the form submission
-  const handleUpload = async () => {
+  const handleAuctionEndConfirm = (date) => {
+    setAuctionEnd(date);
+    setAuctionEndPickerVisible(false);
+  };
+
+  const uploadImage = async (uri, path) => {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const { data, error } = await supabase.storage
+      .from('images')
+      .upload(path, blob, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+    if (error) throw error;
+    return data.path;
+  };
+
+  const handleSubmit = async () => {
+    if (!userId) {
+      Alert.alert("Error", "User ID not found. Please log in again.");
+      return;
+    }
+
     try {
-      // Fetch user ID from Supabase session
-      const { data: { user } } = await supabase.auth.getUser();
-      const userId = user?.id;
+      const imagePath = image ? await uploadImage(image, `livestock/${Date.now()}_image`) : null;
+      const proofPath = proofOfOwnership ? await uploadImage(proofOfOwnership.uri, `proofs/${Date.now()}_proof`) : null;
+      const vetPath = vetCertificate ? await uploadImage(vetCertificate.uri, `certificates/${Date.now()}_vet`) : null;
 
-      if (!userId) {
-        Alert.alert("Error", "User not logged in. Please log in again.");
-        return;
-      }
-
-      // Upload image
-      const imageUrl = image ? await uploadFile(image, 'livestock-images', `image-${Date.now()}.jpg`) : null;
-      
-      // Upload proof of ownership
-      const proofUrl = proofOfOwnership ? await uploadFile(proofOfOwnership.uri, 'livestock-documents', `proof-${Date.now()}.pdf`) : null;
-
-      // Upload vet certificate
-      const vetCertUrl = vetCertificate ? await uploadFile(vetCertificate.uri, 'livestock-documents', `vetcert-${Date.now()}.pdf`) : null;
-
-      // Insert the record into Supabase with owner_id
-      const { data, error } = await supabase
-        .from('livestock')
-        .insert([
-          {
-            category,
-            breed: breedInput,
-            age: ageInput ? parseInt(ageInput) : null,
-            weight: weightInput ? parseFloat(weightInput) : null,
-            starting_price: startingPriceInput ? parseFloat(startingPriceInput) : null,
-            gender,
-            auction_start_date: date.toISOString(),
-            image_uri: imageUrl,
-            proof_of_ownership_uri: proofUrl,
-            vet_certificate_uri: vetCertUrl,
-            location,
-            owner_id: userId, // Set owner_id as userId
-          },
-        ]);
+      const { data, error } = await supabase.from('livestock').insert([{
+        owner_id: userId,
+        category,
+        gender,
+        image_url: imagePath,
+        proof_of_ownership_url: proofPath,
+        vet_certificate_url: vetPath,
+        breed: breedInput,
+        age: parseInt(ageInput),
+        weight: parseFloat(weightInput),
+        starting_price: parseFloat(startingPriceInput),
+        location,
+        auction_start: auctionStart,
+        auction_end: auctionEnd,
+      }]);
 
       if (error) throw error;
-      Alert.alert("Success", "Livestock uploaded successfully");
+      Alert.alert("Success", "Your livestock has been uploaded for auction.");
       navigation.goBack();
     } catch (error) {
       Alert.alert("Error", error.message);
     }
-  };
-
-  // Date and time picker functions
-  const onDateChange = (event, selectedDate) => {
-    const currentDate = selectedDate || date;
-    setShowDatePicker(false);
-    setDate(currentDate);
-  };
-
-  const onTimeChange = (event, selectedTime) => {
-    const currentTime = selectedTime || date;
-    setShowTimePicker(false);
-    setDate(currentTime);
   };
 
   return (
@@ -140,7 +131,6 @@ const PostPage = ({ navigation }) => {
 
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <View style={styles.formContainer}>
-
           <Text style={styles.label}>Category</Text>
           <View style={styles.inputContainer}>
             <Picker
@@ -168,7 +158,7 @@ const PostPage = ({ navigation }) => {
               <Picker.Item label="Male" value="male" />
             </Picker>
           </View>
-          
+
           <TouchableOpacity onPress={pickImage} style={styles.uploadButton}>
             {image ? (
               <Image source={{ uri: image }} style={styles.imagePreview} />
@@ -232,36 +222,32 @@ const PostPage = ({ navigation }) => {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.input}>
-            <Text>{`Auction Start: ${date.toLocaleDateString()}`}</Text>
+          <TouchableOpacity onPress={() => setAuctionStartPickerVisible(true)} style={styles.auctionTimeButton}>
+            <Text style={styles.auctionTimeText}>{`Auction Start: ${auctionStart.toLocaleDateString()} ${auctionStart.toLocaleTimeString()}`}</Text>
           </TouchableOpacity>
-          {showDatePicker && (
-            <DateTimePicker
-              value={date}
-              mode="date"
-              display="default"
-              onChange={onDateChange}
-            />
-          )}
+          <DateTimePickerModal
+            isVisible={isAuctionStartPickerVisible}
+            mode="datetime"
+            onConfirm={handleAuctionStartConfirm}
+            onCancel={() => setAuctionStartPickerVisible(false)}
+          />
 
-          <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.input}>
-            <Text>{`Auction End: ${date.toLocaleTimeString()}`}</Text>
+          <TouchableOpacity onPress={() => setAuctionEndPickerVisible(true)} style={styles.auctionTimeButton}>
+            <Text style={styles.auctionTimeText}>{`Auction End: ${auctionEnd.toLocaleDateString()} ${auctionEnd.toLocaleTimeString()}`}</Text>
           </TouchableOpacity>
-          {showTimePicker && (
-            <DateTimePicker
-              value={date}
-              mode="time"
-              display="default"
-              onChange={onTimeChange}
-            />
-          )}
+          <DateTimePickerModal
+            isVisible={isAuctionEndPickerVisible}
+            mode="datetime"
+            onConfirm={handleAuctionEndConfirm}
+            onCancel={() => setAuctionEndPickerVisible(false)}
+          />
         </View>
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.uploadButtonGreen} onPress={handleUpload}>
+          <TouchableOpacity style={styles.uploadButtonGreen} onPress={handleSubmit}>
             <Text style={styles.uploadButtonText}>Upload</Text>
           </TouchableOpacity>
         </View>
@@ -346,6 +332,20 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     backgroundColor: '#f0f0f0',
   },
+  auctionTimeButton: {
+    height: 45,
+    backgroundColor: '#e8f4ea',
+    borderColor: '#a3d9a5',
+    borderWidth: 1,
+    borderRadius: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  auctionTimeText: {
+    color: '#335441',
+    fontSize: 16,
+  },
   documentUploadButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -360,7 +360,6 @@ const styles = StyleSheet.create({
     color: '#888',
     marginLeft: 5,
     fontSize: 14,
-    justifyContent: 'center',
   },
   buttonContainer: {
     flexDirection: 'row',

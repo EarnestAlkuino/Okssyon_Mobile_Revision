@@ -1,65 +1,125 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../supabase';
+import { supabase } from '../supabase'; // Adjust the path based on your project structure
 
 const BidPage = ({ route, navigation }) => {
-  const { item, userId, ownerId } = route.params;
+  const { item, userId, ownerId } = route.params || {};
   const [bidAmount, setBidAmount] = useState('');
-  const [currentHighestBid, setCurrentHighestBid] = useState(item.starting_price || 0);
-  const [bidCount, setBidCount] = useState(0);
+  const [currentHighestBid, setCurrentHighestBid] = useState(item?.starting_price || 0);
+  const [userCount, setUserCount] = useState(0);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const fetchBidData = async () => {
-      const { data, error } = await supabase
-        .from('bids')
-        .select('bid_amount')
-        .eq('livestock_id', item.id)
-        .order('bid_amount', { ascending: false });
+    // Fetch the initial highest bid and unique user count
+    const fetchInitialBidData = async () => {
+      try {
+        // Get the highest bid
+        const { data: highestBidData, error: highestBidError } = await supabase
+          .from('bids')
+          .select('bid_amount')
+          .eq('livestock_id', item.livestock_id)
+          .order('bid_amount', { ascending: false })
+          .limit(1);
 
-      if (error) {
+        if (highestBidError) throw highestBidError;
+        if (highestBidData.length > 0) {
+          setCurrentHighestBid(highestBidData[0].bid_amount);
+        }
+
+        // Get the unique user count
+        const { data: userCountData, error: userCountError } = await supabase
+          .from('bids')
+          .select('bidder_id', { count: 'exact', distinct: true })
+          .eq('livestock_id', item.livestock_id);
+
+        if (userCountError) throw userCountError;
+        setUserCount(userCountData.length);
+      } catch (error) {
         console.error('Error fetching bid data:', error);
-      } else if (data.length > 0) {
-        setCurrentHighestBid(data[0].bid_amount);
-        setBidCount(data.length);
-      } else {
-        setCurrentHighestBid(item.starting_price || 0);
-        setBidCount(0);
       }
     };
 
-    fetchBidData();
-  }, [item.id]);
+    fetchInitialBidData();
+
+    // Set up real-time subscription for bid changes on this item
+    const subscription = supabase
+      .channel('livestock-bid-changes')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'bids', filter: `livestock_id=eq.${item.livestock_id}` },
+        (payload) => {
+          const newBidAmount = payload.new.bid_amount;
+          const newBidderId = payload.new.bidder_id;
+
+          setCurrentHighestBid((prev) => (newBidAmount > prev ? newBidAmount : prev));
+          
+          // Update user count if this is a new unique user
+          setUserCount((prevCount) => {
+            // Only increase count if the new bidder is unique
+            const isUniqueBidder = !userCountData.some((user) => user.bidder_id === newBidderId);
+            return isUniqueBidder ? prevCount + 1 : prevCount;
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [item.livestock_id]);
 
   const handlePlaceBid = async () => {
+    if (!item) {
+      Alert.alert('Error', 'Invalid auction item.');
+      navigation.goBack();
+      return;
+    }
+
     if (userId === ownerId) {
       Alert.alert('Error', 'You cannot place a bid on your own auction.');
       return;
     }
 
     const parsedBidAmount = parseFloat(bidAmount);
-    if (isNaN(parsedBidAmount) || parsedBidAmount <= currentHighestBid) {
-      Alert.alert('Invalid Bid', 'Your bid must be higher than the current highest bid.');
+    if (isNaN(parsedBidAmount)) {
+      Alert.alert('Invalid Bid', 'Please enter a valid bid amount.');
       return;
     }
 
     setLoading(true);
 
     try {
-      const { error } = await supabase
-        .from('bids')
-        .insert([{ livestock_id: item.id, user_id: userId, bid_amount: parsedBidAmount }]);
+      const latestHighestBid = currentHighestBid;
 
-      if (error) throw error;
+      if (parsedBidAmount <= latestHighestBid) {
+        Alert.alert(
+          'Invalid Bid',
+          `Your bid must be higher than the current highest bid of ₱${latestHighestBid.toLocaleString()}.`
+        );
+        setLoading(false);
+        return;
+      }
+
+      // Insert the new bid into Supabase
+      const { error } = await supabase.from('bids').insert([
+        {
+          livestock_id: item.livestock_id,
+          bidder_id: userId,
+          bid_amount: parsedBidAmount,
+          status: 'pending',
+        },
+      ]);
+
+      if (error) {
+        throw error;
+      }
 
       Alert.alert('Success', 'Your bid has been placed!');
       setBidAmount('');
-      setCurrentHighestBid(parsedBidAmount);
-      setBidCount((prevCount) => prevCount + 1);
     } catch (error) {
       console.error('Error placing bid:', error);
-      Alert.alert('Error', 'There was an issue placing your bid. Please check your connection and try again.');
+      Alert.alert('Error', 'Could not place your bid. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -76,10 +136,10 @@ const BidPage = ({ route, navigation }) => {
         <Ionicons name="arrow-back" size={24} color="black" />
       </TouchableOpacity>
 
-      <Text style={styles.title}>{item.category.toUpperCase()}</Text>
+      <Text style={styles.title}>{item?.category?.toUpperCase() || 'Auction Item'}</Text>
 
       <View style={styles.detailsContainer}>
-        <Text style={styles.details}>Weight: {item.weight}kg | Breed: {item.breed}</Text>
+        <Text style={styles.details}>Weight: {item?.weight || 'N/A'}kg | Breed: {item?.breed || 'N/A'}</Text>
       </View>
 
       <View style={styles.bidInfoContainer}>
@@ -90,7 +150,7 @@ const BidPage = ({ route, navigation }) => {
         <View style={styles.divider} />
         <View style={styles.bidItem}>
           <Text style={styles.bidLabel}>No. of Bidders</Text>
-          <Text style={styles.bidValue}>{bidCount}</Text>
+          <Text style={styles.bidValue}>{userCount}</Text>
         </View>
       </View>
 
@@ -120,11 +180,7 @@ const BidPage = ({ route, navigation }) => {
       </View>
 
       <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={styles.submitButton}
-          onPress={handlePlaceBid}
-          disabled={loading}
-        >
+        <TouchableOpacity style={styles.submitButton} onPress={handlePlaceBid} disabled={loading}>
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
@@ -138,6 +194,7 @@ const BidPage = ({ route, navigation }) => {
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {

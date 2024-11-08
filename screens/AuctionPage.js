@@ -37,16 +37,16 @@ const AuctionPage = ({ navigation, route }) => {
     if (isFocused && category) {
       fetchLivestockData();
     }
-  }, [isFocused, category]);
+  }, [isFocused, category, userId]);
 
   const handleLivestockSelect = useCallback((item) => {
-    navigation.navigate('LivestockAuctionDetailPage', { itemId: item.id, userId });
+    navigation.navigate('LivestockAuctionDetailPage', { itemId: item.livestock_id || item.id, userId });
   }, [navigation, userId]);
 
   const renderItem = useCallback(({ item }) => (
     <TouchableOpacity style={styles.card} onPress={() => handleLivestockSelect(item)}>
       <Image
-        source={{ uri: item.image_uri || 'https://via.placeholder.com/100' }}
+        source={{ uri: item.image_url || 'https://via.placeholder.com/100' }} // Use image_url as per the table schema
         style={styles.image}
       />
       <View style={styles.infoContainer}>
@@ -73,12 +73,12 @@ const AuctionPage = ({ navigation, route }) => {
     <View style={styles.container}>
       <Text style={styles.header}>Available {category}</Text>
       {livestockData.length > 0 ? (
-        <FlatList
-          data={livestockData}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.listContainer}
-        />
+       <FlatList
+         data={livestockData}
+         renderItem={renderItem}
+         keyExtractor={(item, index) => (item.livestock_id ? item.livestock_id.toString() : index.toString())} // Use livestock_id or id as primary key
+         contentContainerStyle={styles.listContainer}
+       />     
       ) : (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No livestock available in this category.</Text>
@@ -141,6 +141,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#777',
   },
 });
 

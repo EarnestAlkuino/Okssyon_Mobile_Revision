@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import Header from '../Components/Header';
-import { supabase } from '../supabase';
+import { supabase } from '../supabase'; // Import Supabase instance
 
 const NotificationPage = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState('Recent');
-  const [notifications, setNotifications] = useState([]);
+  const [notifications, setNotifications] = useState([]); 
   const [announcements, setAnnouncements] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -17,9 +17,8 @@ const NotificationPage = ({ navigation }) => {
       await SplashScreen.hideAsync();
     };
     hideSplashScreen();
-  }, []);
 
-  useEffect(() => {
+    // Fetch data from Supabase
     fetchNotifications();
     fetchAnnouncements();
   }, []);
@@ -27,7 +26,7 @@ const NotificationPage = ({ navigation }) => {
   const fetchNotifications = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from('notifications')
+      .from('notifications') // Replace with your notifications table name
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -43,7 +42,7 @@ const NotificationPage = ({ navigation }) => {
 
   const fetchAnnouncements = async () => {
     const { data, error } = await supabase
-      .from('announcements')
+      .from('announcements') // Replace with your announcements table name
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -66,10 +65,11 @@ const NotificationPage = ({ navigation }) => {
 
   const handleNotificationPress = (notification) => {
     console.log('Notification clicked:', notification);
-    if (notification.action_url) {
-      navigation.navigate(notification.action_url);
+    if (notification.livestock_id) {
+      navigation.navigate('LivestockAuctionDetailPage', { livestock_id: notification.livestock_id });
     }
   };
+  
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -134,14 +134,15 @@ const NotificationPage = ({ navigation }) => {
           <Text style={styles.errorText}>{error}</Text>
         ) : (
           <FlatList
-            data={filteredItems}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderNotificationItem}
-            ListEmptyComponent={<Text style={styles.contentText}>No notifications available</Text>}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-          />
+          data={filteredItems}
+          keyExtractor={(item, index) => (item.id ? item.id.toString() : index.toString())}
+          renderItem={renderNotificationItem}
+          ListEmptyComponent={<Text style={styles.contentText}>No notifications available</Text>}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        />
+        
         )}
       </View>
     </View>
