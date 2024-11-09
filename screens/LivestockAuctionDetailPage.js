@@ -70,29 +70,83 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
     fetchItem();
   }, [itemId]);
 
-  // Determine if the current user is the auction creator
   const isCreator = item && userId === item.owner_id;
 
-  // Handle button actions for creator and bidder
-  const handleAction = (actionType) => {
-    if (isCreator) {
-      if (actionType === 'Delete') {
-        Alert.alert(
-          "Confirm Deletion",
-          "Are you sure you want to delete this auction?",
-          [
-            { text: "Cancel", style: "cancel" },
-            { text: "Delete", style: "destructive", onPress: deleteAuction },
-          ]
-        );
-      } else if (actionType === 'Edit') {
-        navigation.navigate('EditAuctionPage', { itemId });
-      }
-    } else {
-      const targetPage = actionType === 'Bid' ? 'BidPage' : 'ChatPage';
-      navigation.navigate(targetPage, { item, userId, ownerId: item.owner_id });
+const handleAction = async (actionType) => {
+  if (isCreator) {
+    if (actionType === 'Delete') {
+      Alert.alert(
+        "Confirm Deletion",
+        "Are you sure you want to delete this auction?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Delete", style: "destructive", onPress: deleteAuction },
+        ]
+      );
+    } else if (actionType === 'Edit') {
+      navigation.navigate('EditAuctionPage', { itemId });
     }
-  };
+  } else {
+    if (actionType === 'Bid') {
+      navigation.navigate('BidPage', { item, userId, ownerId: item.owner_id });
+    } else if (actionType === 'Chat') {
+      if (!item.owner_id || !userId) {
+        console.warn('Missing seller_id or bidder_id in item data.');
+        Alert.alert('Error', 'Seller or Bidder information is missing. Unable to start chat.');
+        return;
+      }
+
+      try {
+        // Attempt to fetch an existing conversation
+        const { data: conversationData, error } = await supabase
+          .from('conversations')
+          .select('conversation_id')
+          .eq('auction_id', item.livestock_id)
+          .eq('bidder_id', userId)
+          .eq('seller_id', item.owner_id)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          throw error; // Throw only if the error is not about missing rows
+        }
+
+        if (conversationData) {
+          // Existing conversation found
+          console.log("Existing conversation found with ID:", conversationData.conversation_id);
+          navigation.navigate('ChatPage', {
+            conversationId: conversationData.conversation_id,
+            userId: userId,
+            item: { ...item, seller_id: item.owner_id, bidder_id: userId },
+          });
+        } else {
+          // No existing conversation, so create a new one
+          const { data: newConversation, error: createError } = await supabase
+            .from('conversations')
+            .insert([
+              {
+                auction_id: item.livestock_id,
+                seller_id: item.owner_id,
+                bidder_id: userId,
+              },
+            ])
+            .single();
+
+          if (createError) throw createError;
+
+          console.log("New conversation created with ID:", newConversation.conversation_id);
+          navigation.navigate('ChatPage', {
+            conversationId: newConversation.conversation_id,
+            userId: userId,
+            item: { ...item, seller_id: item.owner_id, bidder_id: userId },
+          });
+        }
+      } catch (error) {
+        console.error("Error handling conversation:", error);
+        Alert.alert("Error", "Could not start the chat. Please try again.");
+      }
+    }
+  }
+};
 
   // Delete auction function
   const deleteAuction = async () => {
