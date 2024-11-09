@@ -125,6 +125,7 @@ const PostPage = ({ navigation }) => {
     <View style={styles.container}>
       <Header
         title="Livestock Upload Form"
+        showBackButton={false}
         showSettingsButton={false}
         onBackPress={() => navigation.goBack()}
       />

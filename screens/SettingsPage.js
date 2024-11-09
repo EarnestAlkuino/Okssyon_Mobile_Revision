@@ -1,23 +1,23 @@
 // SettingsPage.js
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import Header from '../Components/Header'; 
 
 const SettingsPage = ({ navigation }) => {
   const handleLogout = () => {
-    alert('Logout Pressed');
-    // Add your logout functionality here
+    navigation.navigate('LoginPage'); 
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="black" />
-        </TouchableOpacity>
-        <Text style={styles.title}>SETTINGS</Text>
-        <Image source={require('../assets/logo1.png')} style={styles.logo} />
-      </View>
+      {/* Header Component */}
+      <Header
+        title="SETTINGS"
+        showBackButton={true}
+        onBackPress={() => navigation.goBack()}
+        showSettingsButton={false} 
+      />
 
       <ScrollView style={styles.scrollView}>
         <Text style={styles.sectionTitle}>GENERAL</Text>
@@ -31,9 +31,8 @@ const SettingsPage = ({ navigation }) => {
               } else if (item === 'Help') {
                 navigation.navigate('HelpPage');  
               } else if (item === 'Language') {
-                navigation.navigate('LanguagePage');  // Navigate to HelpPage
+                navigation.navigate('LanguagePage');
               } else {
-                // Placeholder for other navigations
                 alert(`${item} Page`);
               }
             }}
@@ -63,25 +62,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#ffffff',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    backgroundColor: '#f0f0f0',
-  },
-  backButton: {
-    marginRight: 10,
-  },
-  title: {
-    flex: 1,
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  logo: {
-    width: 100,
-    height: 40,
-    resizeMode: 'contain',
   },
   scrollView: {
     paddingHorizontal: 15,

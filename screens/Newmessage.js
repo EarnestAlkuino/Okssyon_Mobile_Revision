@@ -1,84 +1,85 @@
 import React from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image } from 'react-native';
+import Header from '../Components/Header'; // Adjust the path based on your file structure
+import { Ionicons } from '@expo/vector-icons';
 
 const MessageInput = () => {
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-      <Image source={require('../assets/logo1.png')} style={styles.logo} />
-        <h2 style={styles.title}>Seller/Bidder Name</h2>
-      </div>
-      <div style={styles.messageBox}>
-        <input 
-          type="text" 
-          placeholder="Type a message" 
+    <View style={styles.container}>
+      {/* Header */}
+      <Header 
+        title="Seller/Bidder Name" 
+        showBackButton={true} 
+        onBackPress={() => alert('Back Pressed')} 
+        showSettingsButton={true} 
+        onSettingsPress={() => alert('Settings Pressed')} 
+      />
+
+      {/* Logo and Title Section */}
+      <View style={styles.header}>
+        <Image source={require('../assets/logo1.png')} style={styles.logo} />
+        <Text style={styles.title}>Seller/Bidder Name</Text>
+      </View>
+
+      {/* Message Input Box */}
+      <View style={styles.messageBox}>
+        <TextInput 
           style={styles.input} 
+          placeholder="Type a message..." 
+          placeholderTextColor="#888"
         />
-        <button style={styles.sendButton}>
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            width="24" 
-            height="24" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4l16 8-16 8V4z" />
-          </svg>
-        </button>
-      </div>
-    </div>
+        <TouchableOpacity style={styles.sendButton} onPress={() => alert('Message Sent')}>
+          <Ionicons name="send" size={24} color="#257446" />
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 };
 
-const styles = {
+const styles = StyleSheet.create({
   container: {
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-    height: '100vh',
-    padding: '20px',
-    boxSizing: 'border-box',
+    flex: 1,
+    backgroundColor: '#ffffff',
   },
   header: {
-    display: 'flex',
-    flexDirection: 'column',
     alignItems: 'center',
-    marginBottom: '20px',
+    marginVertical: 10,
   },
   logo: {
-    height: '50px',
-    marginBottom: '10px',
+    height: 50,
+    width: 50,
+    resizeMode: 'contain',
   },
   title: {
-    fontSize: '18px',
-    fontWeight: 'normal',
+    fontSize: 18,
+    fontWeight: '600',
     color: '#333',
+    marginTop: 5,
   },
   messageBox: {
-    display: 'flex',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    position: 'fixed',
-    bottom: '0',
-    width: '100%',
-    padding: '10px 20px',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#ddd',
     backgroundColor: '#f8f8f8',
-    borderTop: '1px solid #ddd',
   },
   input: {
-    flex: '1',
-    height: '40px',
-    border: '1px solid #ccc',
-    borderRadius: '20px',
-    padding: '0 15px',
-    fontSize: '16px',
+    flex: 1,
+    height: 40,
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    backgroundColor: '#e8e8e8',
+    fontSize: 16,
+    marginRight: 10,
+    color: '#333',
   },
   sendButton: {
-    marginLeft: '10px',
-    border: 'none',
-    background: 'none',
-    cursor: 'pointer',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
   },
-};
+});
 
 export default MessageInput;

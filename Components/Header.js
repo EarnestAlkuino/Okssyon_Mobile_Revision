@@ -1,5 +1,3 @@
-// Header.js
-
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, SafeAreaView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,7 +19,7 @@ const Header = ({
   return (
     <>
       <StatusBar translucent barStyle="light-content" backgroundColor="transparent" />
-      <LinearGradient colors={['#257446', '#234D35']} style={styles.gradient}>
+      <LinearGradient colors={['#257446', '#1f4b33', '#1b3f2b']} style={styles.gradient}>
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.headerContent}>
             {showBackButton && (
@@ -49,21 +47,25 @@ const Header = ({
 
 const styles = StyleSheet.create({
   gradient: {
-    paddingBottom: 20,
+    paddingBottom: 30,
+    elevation: 5,
+    shadowColor: "#000", 
+    shadowOffset: { width: 0, height: 5 }, 
+    shadowOpacity: 0.5, 
+    shadowRadius: 3,
   },
   safeArea: {
-    paddingTop: StatusBar.currentHeight || 0,
+    paddingTop: StatusBar.currentHeight || 10, 
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 15,
   },
   title: {
     color: 'white',
-    fontSize: 20,
+    fontSize: 18, 
     fontWeight: '600',
     flex: 1,
     textAlign: 'center',
@@ -71,8 +73,9 @@ const styles = StyleSheet.create({
   iconButton: {
     justifyContent: 'center',
     alignItems: 'center',
-    width: 40,
-    height: 40,
+    width: 35, 
+    height: 35,
+    borderRadius: 17.5,
   },
 });
 

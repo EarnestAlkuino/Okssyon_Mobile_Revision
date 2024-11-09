@@ -49,7 +49,7 @@ const ProfilePage = ({ navigation }) => {
       <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
       <Header
         title="Profile"
-        onBackPress={handleBackPress}
+        showBackButton={false}
         onSettingsPress={handleSettingsPress}
         showSettingsButton={true}
       />

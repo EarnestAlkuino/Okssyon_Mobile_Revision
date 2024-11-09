@@ -98,7 +98,7 @@ const NotificationPage = ({ navigation }) => {
       {/* Header */}
       <Header 
         title="Notifications"
-        showBackButton={true}
+        showBackButton={false}
         showSettingsButton={false}
         onBackPress={handleBackPress}
       />
