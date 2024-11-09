@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet, Image, ActivityIndicator, Alert } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { supabase } from '../supabase';
+import Header from '../Components/Header';
 
 const AuctionPage = ({ navigation, route }) => {
   const { category, userId } = route.params;
@@ -9,7 +10,7 @@ const AuctionPage = ({ navigation, route }) => {
   const [livestockData, setLivestockData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchLivestockData = async () => {
+  const fetchLivestockData = async () => { 
     console.log("Fetching data for category:", category);
     setLoading(true);
 
@@ -41,8 +42,8 @@ const AuctionPage = ({ navigation, route }) => {
 
   const handleLivestockSelect = useCallback((item) => {
     navigation.navigate('LivestockAuctionDetailPage', { itemId: item.livestock_id, userId });
-
   });
+
   const renderItem = useCallback(({ item }) => (
     <TouchableOpacity style={styles.card} onPress={() => handleLivestockSelect(item)}>
       <Image
@@ -51,11 +52,11 @@ const AuctionPage = ({ navigation, route }) => {
       />
       <View style={styles.infoContainer}>
         <Text style={styles.categoryText}>{item.category}</Text>
-        <Text style={styles.detailsText}>Breed: {item.breed || 'Unknown'}</Text>
-        <Text style={styles.detailsText}>Location: {item.location || 'Not specified'}</Text>
-        <Text style={styles.detailsText}>Weight: {item.weight} kg</Text>
-        <Text style={styles.detailsText}>Gender: {item.gender}</Text>
-        <Text style={styles.detailsText}>Starting Price: ₱{item.starting_price?.toLocaleString()}</Text>
+        <Text style={styles.detailsText}>Breed: <Text style={styles.detailValue}>{item.breed || 'Unknown'}</Text></Text>
+        <Text style={styles.detailsText}>Location: <Text style={styles.detailValue}>{item.location || 'Not specified'}</Text></Text>
+        <Text style={styles.detailsText}>Weight: <Text style={styles.detailValue}>{item.weight} kg</Text></Text>
+        <Text style={styles.detailsText}>Gender: <Text style={styles.detailValue}>{item.gender}</Text></Text>
+        <Text style={styles.detailsText}>Starting Price: <Text style={styles.priceText}>₱{item.starting_price?.toLocaleString()}</Text></Text>
       </View>
     </TouchableOpacity>
   ), [handleLivestockSelect]);
@@ -71,7 +72,12 @@ const AuctionPage = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Available {category}</Text>
+      <Header 
+        title={`Available ${category}`} 
+        showBackButton={true}
+        onBackPress={() => navigation.goBack()} 
+        showSettingsButton={false}
+      />
       {livestockData.length > 0 ? (
         <FlatList
           data={livestockData}
@@ -91,15 +97,7 @@ const AuctionPage = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: '#f2f2f2',
-  },
-  header: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#335441',
-    marginBottom: 10,
-    textAlign: 'center',
   },
   listContainer: {
     paddingBottom: 20,
@@ -107,35 +105,44 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 15,
+    borderRadius: 15,
+    padding: 15,
+    marginBottom: 20,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 }, 
+    shadowOpacity: 0.3, 
+    shadowRadius: 6, 
+    elevation: 8,
   },
   image: {
-    width: 80,
-    height: 80,
+    width: 90,
+    height: 90,
     borderRadius: 10,
-    marginRight: 10,
+    marginRight: 15,
   },
   infoContainer: {
     flex: 1,
   },
   categoryText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#335441',
-    marginBottom: 5,
+    marginBottom: 8,
   },
   detailsText: {
     fontSize: 14,
     color: '#555',
-    marginBottom: 3,
+    marginBottom: 6,
+  },
+  detailValue: {
+    fontWeight: '600',
+    color: '#333',
+  },
+  priceText: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#405e40',
   },
   loadingContainer: {
     flex: 1,

@@ -11,10 +11,9 @@ const BidPage = ({ route, navigation }) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Fetch the initial highest bid and unique user count
     const fetchInitialBidData = async () => {
       try {
-        // Get the highest bid
+        // Fetch the highest bid
         const { data: highestBidData, error: highestBidError } = await supabase
           .from('bids')
           .select('bid_amount')
@@ -27,22 +26,22 @@ const BidPage = ({ route, navigation }) => {
           setCurrentHighestBid(highestBidData[0].bid_amount);
         }
 
-        // Get the unique user count
-        const { data: userCountData, error: userCountError } = await supabase
+        // Fetch the unique user count for bidders on this item
+        const { count, error: userCountError } = await supabase
           .from('bids')
           .select('bidder_id', { count: 'exact', distinct: true })
           .eq('livestock_id', item.livestock_id);
 
         if (userCountError) throw userCountError;
-        setUserCount(userCountData.length);
+        setUserCount(count);
       } catch (error) {
-        console.error('Error fetching bid data:', error);
+        console.error('Error fetching initial bid data:', error);
       }
     };
 
     fetchInitialBidData();
 
-    // Set up real-time subscription for bid changes on this item
+    // Real-time subscription for new bids on this item
     const subscription = supabase
       .channel('livestock-bid-changes')
       .on(
@@ -52,13 +51,12 @@ const BidPage = ({ route, navigation }) => {
           const newBidAmount = payload.new.bid_amount;
           const newBidderId = payload.new.bidder_id;
 
+          // Update the highest bid if the new bid is higher
           setCurrentHighestBid((prev) => (newBidAmount > prev ? newBidAmount : prev));
-          
-          // Update user count if this is a new unique user
+
+          // Update user count only if the new bidder is unique
           setUserCount((prevCount) => {
-            // Only increase count if the new bidder is unique
-            const isUniqueBidder = !userCountData.some((user) => user.bidder_id === newBidderId);
-            return isUniqueBidder ? prevCount + 1 : prevCount;
+            return prevCount + 1;
           });
         }
       )
@@ -90,18 +88,16 @@ const BidPage = ({ route, navigation }) => {
     setLoading(true);
 
     try {
-      const latestHighestBid = currentHighestBid;
-
-      if (parsedBidAmount <= latestHighestBid) {
+      if (parsedBidAmount <= currentHighestBid) {
         Alert.alert(
           'Invalid Bid',
-          `Your bid must be higher than the current highest bid of ₱${latestHighestBid.toLocaleString()}.`
+          `Your bid must be higher than the current highest bid of ₱${currentHighestBid.toLocaleString()}.`
         );
         setLoading(false);
         return;
       }
 
-      // Insert the new bid into Supabase
+      // Insert the new bid
       const { error } = await supabase.from('bids').insert([
         {
           livestock_id: item.livestock_id,
@@ -163,29 +159,16 @@ const BidPage = ({ route, navigation }) => {
       />
 
       <View style={styles.presetBidContainer}>
-        <View style={styles.presetRow}>
-          {[1000, 3000].map((amount) => (
-            <TouchableOpacity key={amount} style={styles.presetButton} onPress={() => addToBid(amount)}>
-              <Text style={styles.presetButtonText}>+₱{amount.toLocaleString()}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={styles.presetRow}>
-          {[5000, 10000].map((amount) => (
-            <TouchableOpacity key={amount} style={styles.presetButton} onPress={() => addToBid(amount)}>
-              <Text style={styles.presetButtonText}>+₱{amount.toLocaleString()}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {[1000, 3000, 5000, 10000].map((amount) => (
+          <TouchableOpacity key={amount} style={styles.presetButton} onPress={() => addToBid(amount)}>
+            <Text style={styles.presetButtonText}>+₱{amount.toLocaleString()}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={styles.submitButton} onPress={handlePlaceBid} disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Submit Bid</Text>
-          )}
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Submit Bid</Text>}
         </TouchableOpacity>
         <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
           <Text style={styles.cancelText}>Cancel</Text>
@@ -194,7 +177,6 @@ const BidPage = ({ route, navigation }) => {
     </View>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {
@@ -258,27 +240,24 @@ const styles = StyleSheet.create({
   },
   presetBidContainer: {
     width: '80%',
-    marginBottom: 20,
-  },
-  presetRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 10,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 20,
   },
   presetButton: {
     backgroundColor: '#e0e0e0',
     padding: 10,
     borderRadius: 10,
-    width: '48%',
+    width: '48%', 
     alignItems: 'center',
+    marginBottom: 10, 
   },
   presetButtonText: {
     fontSize: 16,
     color: '#000',
   },
   buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     width: '80%',
     marginTop: 15,
   },
@@ -287,14 +266,13 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderRadius: 10,
-    width: '48%',
     alignItems: 'center',
+    marginBottom: 10, 
   },
   cancelButton: {
     borderColor: '#335441',
     borderWidth: 1,
     borderRadius: 10,
-    width: '48%',
     alignItems: 'center',
     paddingVertical: 15,
   },
@@ -307,5 +285,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
 });
+
+
 
 export default BidPage;

@@ -187,7 +187,7 @@ const PostPage = ({ navigation }) => {
           </View>
 
           <TextInput
-            placeholder="Weight"
+            placeholder="Weight (kg)"
             style={styles.input}
             keyboardType="numeric"
             value={weightInput}
@@ -241,9 +241,7 @@ const PostPage = ({ navigation }) => {
             onConfirm={handleAuctionEndConfirm}
             onCancel={() => setAuctionEndPickerVisible(false)}
           />
-        </View>
-
-        <View style={styles.buttonContainer}>
+          <View style={styles.buttonContainer}>
           <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
@@ -251,6 +249,9 @@ const PostPage = ({ navigation }) => {
             <Text style={styles.uploadButtonText}>Upload</Text>
           </TouchableOpacity>
         </View>
+        </View>
+
+        
       </ScrollView>
     </View>
   );
@@ -264,6 +265,7 @@ const styles = StyleSheet.create({
   scrollViewContent: {
     flexGrow: 1,
     padding: 15,
+    paddingBottom: 100,
   },
   formContainer: {
     backgroundColor: '#fff',
@@ -364,8 +366,8 @@ const styles = StyleSheet.create({
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 50,
-    marginBottom: 20,
+    paddingVertical: 10,
+    marginBottom: 40,
   },
   cancelButton: {
     width: '48%',
@@ -394,5 +396,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
+
 
 export default PostPage;

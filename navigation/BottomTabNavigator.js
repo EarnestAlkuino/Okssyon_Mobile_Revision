@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text } from 'react-native'; // Import Text from react-native
+import { Text, StyleSheet, Dimensions } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -10,6 +10,7 @@ import NotificationPage from '../screens/NotificationPage';
 import ProfilePage from '../screens/ProfilePage';
 
 const Tab = createBottomTabNavigator();
+const { width } = Dimensions.get('window');
 
 const BottomTabNavigator = () => {
   return (
@@ -18,10 +19,9 @@ const BottomTabNavigator = () => {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused }) => {
           let iconName;
-          let iconSize = 28;  // Keep all icons the same size
-          let iconColor = focused ? '#fff' : '#405e40';
+          const iconSize = 28;
+          const iconColor = focused ? '#405e40' : '#405e40'; // Dark green for unfocused state
 
-          // Define icons based on the route name
           switch (route.name) {
             case 'Home':
               iconName = focused ? 'home' : 'home-outline';
@@ -42,20 +42,13 @@ const BottomTabNavigator = () => {
               iconName = 'circle-outline';
           }
 
-          // Conditional rendering for highlighted icon with gradient background
-          if (focused) {
+          if (focused && route.name === 'Post') {
             return (
               <LinearGradient
-                colors={['#ffba08', '#ff9a76']}
-                style={{
-                  width: iconSize + 18,
-                  height: iconSize + 18,
-                  borderRadius: (iconSize + 18) / 2,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
+                colors={['#405e40', '#4caf50']}
+                style={styles.gradientIconContainer}
               >
-                <Icon name={iconName} size={iconSize} color={iconColor} />
+                <Icon name={iconName} size={iconSize + 10} color="#fff" />
               </LinearGradient>
             );
           } else {
@@ -63,25 +56,12 @@ const BottomTabNavigator = () => {
           }
         },
         tabBarLabel: ({ focused }) => (
-          <Text style={{ color: focused ? '#ff9a76' : '#405e40', fontSize: 12 }}>
+          <Text style={focused ? styles.tabBarLabelFocused : styles.tabBarLabel}>
             {route.name}
           </Text>
         ),
         tabBarShowLabel: true,
-        tabBarStyle: {
-          height: 85,
-          backgroundColor: '#e5f4e3',
-          paddingBottom: 10,
-          paddingTop: 10,
-          borderRadius: 25,
-          borderTopWidth: 0,
-          shadowColor: '#000',
-          shadowOpacity: 0.1,
-          shadowOffset: { width: 0, height: 3 },
-          shadowRadius: 5,
-          elevation: 5,
-          position: 'absolute',
-        },
+        tabBarStyle: styles.tabBarStyle,
         headerShown: false,
       })}
     >
@@ -93,5 +73,49 @@ const BottomTabNavigator = () => {
     </Tab.Navigator>
   );
 };
+
+const styles = StyleSheet.create({
+  tabBarStyle: {
+    height: 80,
+    backgroundColor: '#e0f5e0',
+    paddingBottom: 12,
+    paddingTop: 10,
+    borderRadius: 0,
+    borderTopWidth: 0,
+    marginHorizontal: 0,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 8,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  gradientIconContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#4caf50',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 8,
+    position: 'absolute',
+    top: -30,
+  },
+  tabBarLabel: {
+    color: '#405e40', 
+    fontSize: 12,
+  },
+  tabBarLabelFocused: {
+    color: '#405e40', 
+    fontSize: 12,
+    fontWeight: '600',
+  },
+});
 
 export default BottomTabNavigator;
