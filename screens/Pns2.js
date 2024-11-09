@@ -1,62 +1,48 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { supabase } from '../supabase'; // Import your Supabase client
 
 const Pns2 = () => {
-  const data = [
-    {
-      animal: 'Cattle',
-      weightRange: '500-600 kg',
-      prices: [
-        { label: 'Fattener', value: '138.66 - 154.28 per kg' },
-        { label: 'Estimated Dressed weight', value: '300.00-320.00 per kg' },
-        { label: 'Liveweight', value: '200.00-205.00 per kg' },
-      ],
-    },
-    {
-      animal: 'Carabao',
-      weightRange: '220-330 kg',
-      prices: [
-        { label: 'Fattener', value: '138.66 - 154.28 per kg' },
-        { label: 'Estimated Dressed weight', value: '300.00-320.00 per kg' },
-        { label: 'Liveweight', value: '200.00-205.00 per kg' },
-      ],
-    },
-    {
-      animal: 'Horse',
-      weightRange: '500-600 kg',
-      prices: [
-        { label: 'Fattener', value: '138.66 - 154.28 per kg' },
-        { label: 'Estimated Dressed weight', value: '300.00-320.00 per kg' },
-        { label: 'Liveweight', value: '200.00-205.00 per kg' },
-      ],
-    },
-    {
-      animal: 'Pig',
-      weightRange: '90-110 kg',
-      prices: [
-        { label: 'Fattener', value: '180.00-200.00 per kg' },
-        { label: 'Estimated Dressed weight', value: '360.00-380.00 per kg' },
-        { label: 'Liveweight', value: '240.00-260.00 per kg' },
-      ],
-    },
-    {
-      animal: 'Sheep',
-      weightRange: '40-60 kg',
-      prices: [
-        { label: 'Fattener', value: '140.00-160.00 per kg' },
-        { label: 'Estimated Dressed weight', value: '280.00-300.00 per kg' },
-        { label: 'Liveweight', value: '180.00-200.00 per kg' },
-      ],
-    },
-    {
-      animal: 'Goat',
-      weightRange: '500-600 kg',
-      prices: [
-        { label: 'Estimated Dressed weight', value: '300.00-320.00 per kg' },
-        { label: 'Liveweight', value: '200.00-205.00 per kg' },
-      ],
-    },
-  ];
+  const [data, setData] = useState([]);
+
+  // Fetch data from Supabase
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch animals and their weight ranges
+        const { data: animals, error: animalError } = await supabase
+          .from('pns2_animals')
+          .select('*');
+
+        if (animalError) throw new Error(animalError.message);
+
+        // Fetch prices with animal_id references
+        const { data: prices, error: priceError } = await supabase
+          .from('pns2_prices')
+          .select('*');
+
+        if (priceError) throw new Error(priceError.message);
+
+        // Combine animal and price data
+        const organizedData = animals.map((animal) => {
+          const animalPrices = prices
+            .filter((price) => price.animal_id === animal.id)
+            .map((price) => ({ label: price.label, value: price.price_value }));
+          return {
+            animal: animal.animal,
+            weightRange: animal.weight_range,
+            prices: animalPrices,
+          };
+        });
+
+        setData(organizedData);
+      } catch (error) {
+        console.error('Error fetching data:', error.message);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   return (
     <ScrollView style={styles.scrollContainer}>
