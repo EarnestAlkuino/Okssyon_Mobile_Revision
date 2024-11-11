@@ -6,11 +6,11 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
   const { itemId, userId: userIdFromParams } = route.params || {};
   const [userId, setUserId] = useState(userIdFromParams);
   const [item, setItem] = useState(null);
-  const [latestBid, setLatestBid] = useState(null); // New state for latest bid
+  const [latestBid, setLatestBid] = useState(null);
   const [loading, setLoading] = useState(true);
   const [imageLoading, setImageLoading] = useState(true);
+  const [timeRemaining, setTimeRemaining] = useState(null);
 
-  // Fetch User ID if not provided
   useEffect(() => {
     const fetchUserIdIfNeeded = async () => {
       if (!userId) {
@@ -26,11 +26,9 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
     fetchUserIdIfNeeded();
   }, [userId]);
 
-  // Fetch item details and latest bid
   useEffect(() => {
     const fetchItem = async () => {
       setLoading(true);
-      console.log("Fetching item details for itemId:", itemId); // Debugging log
 
       const { data, error } = await supabase
         .from('livestock')
@@ -39,116 +37,98 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
         .single();
 
       if (error) {
-        console.error("Error fetching item details:", error); // Debugging error log
         Alert.alert("Error", "Failed to fetch item details.");
       } else {
-        console.log("Fetched item details:", data); // Debugging success log
         setItem(data);
-        fetchLatestBid(itemId); // Fetch the latest bid after item details are fetched
+        fetchLatestBid(itemId);
+        if (data.end_time) {
+          startCountdown(data.end_time);
+        }
       }
       setLoading(false);
     };
-    
-    // Fetch the latest bid for the livestock item
+
     const fetchLatestBid = async (livestockId) => {
       const { data, error } = await supabase
         .from('bids')
         .select('bid_amount')
         .eq('livestock_id', livestockId)
-        .order('bid_amount', { ascending: false }) // Order by highest bid amount
+        .order('bid_amount', { ascending: false })
         .limit(1);
 
-      if (error) {
-        console.error("Error fetching latest bid:", error);
-      } else if (data.length > 0) {
+      if (!error && data.length > 0) {
         setLatestBid(data[0].bid_amount);
       } else {
-        setLatestBid(null); // No bids found, set to null
+        setLatestBid(null);
       }
     };
 
     fetchItem();
+
+    const bidSubscription = supabase
+      .channel('bid_updates')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bids', filter: `livestock_id=eq.${itemId}` }, (payload) => {
+        setLatestBid((prevBid) => Math.max(prevBid || 0, payload.new.bid_amount));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(bidSubscription);
+    };
   }, [itemId]);
+
+  const startCountdown = (endTime) => {
+    const endTimestamp = new Date(endTime).getTime();
+
+    const timer = setInterval(() => {
+      const currentTime = new Date().getTime();
+      const remainingTime = endTimestamp - currentTime;
+
+      if (remainingTime <= 0) {
+        clearInterval(timer);
+        setTimeRemaining("Auction Ended");
+      } else {
+        const days = Math.floor(remainingTime / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((remainingTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((remainingTime % (1000 * 60)) / 1000);
+        setTimeRemaining(
+          `${days > 0 ? `${days}d ` : ''}${hours}h ${minutes}m ${seconds}s`
+        );
+      }
+    }, 1000);
+
+    // Clear the interval when the component unmounts
+    return () => clearInterval(timer);
+  };
 
   const isCreator = item && userId === item.owner_id;
 
-const handleAction = async (actionType) => {
-  if (isCreator) {
-    if (actionType === 'Delete') {
-      Alert.alert(
-        "Confirm Deletion",
-        "Are you sure you want to delete this auction?",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Delete", style: "destructive", onPress: deleteAuction },
-        ]
-      );
-    } else if (actionType === 'Edit') {
-      navigation.navigate('EditAuctionPage', { itemId });
-    }
-  } else {
-    if (actionType === 'Bid') {
-      navigation.navigate('BidPage', { item, userId, ownerId: item.owner_id });
-    } else if (actionType === 'Chat') {
-      if (!item.owner_id || !userId) {
-        console.warn('Missing seller_id or bidder_id in item data.');
-        Alert.alert('Error', 'Seller or Bidder information is missing. Unable to start chat.');
-        return;
+  const handleAction = async (actionType) => {
+    if (isCreator) {
+      if (actionType === 'Delete') {
+        Alert.alert(
+          "Confirm Deletion",
+          "Are you sure you want to delete this auction?",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Delete", style: "destructive", onPress: deleteAuction },
+          ]
+        );
+      } else if (actionType === 'Edit') {
+        navigation.navigate('EditAuctionPage', { itemId });
       }
-
-      try {
-        // Attempt to fetch an existing conversation
-        const { data: conversationData, error } = await supabase
-          .from('conversations')
-          .select('conversation_id')
-          .eq('auction_id', item.livestock_id)
-          .eq('bidder_id', userId)
-          .eq('seller_id', item.owner_id)
-          .single();
-
-        if (error && error.code !== 'PGRST116') {
-          throw error; // Throw only if the error is not about missing rows
-        }
-
-        if (conversationData) {
-          // Existing conversation found
-          console.log("Existing conversation found with ID:", conversationData.conversation_id);
-          navigation.navigate('ChatPage', {
-            conversationId: conversationData.conversation_id,
-            userId: userId,
-            item: { ...item, seller_id: item.owner_id, bidder_id: userId },
-          });
-        } else {
-          // No existing conversation, so create a new one
-          const { data: newConversation, error: createError } = await supabase
-            .from('conversations')
-            .insert([
-              {
-                auction_id: item.livestock_id,
-                seller_id: item.owner_id,
-                bidder_id: userId,
-              },
-            ])
-            .single();
-
-          if (createError) throw createError;
-
-          console.log("New conversation created with ID:", newConversation.conversation_id);
-          navigation.navigate('ChatPage', {
-            conversationId: newConversation.conversation_id,
-            userId: userId,
-            item: { ...item, seller_id: item.owner_id, bidder_id: userId },
-          });
-        }
-      } catch (error) {
-        console.error("Error handling conversation:", error);
-        Alert.alert("Error", "Could not start the chat. Please try again.");
+    } else if (timeRemaining !== "Auction Ended") {
+      if (actionType === 'Bid') {
+        navigation.navigate('BidPage', { item, userId, ownerId: item.owner_id });
+      } else if (actionType === 'Chat') {
+        startChat();
       }
+    } else {
+      Alert.alert("Auction Ended", "This auction has ended. Bidding is no longer allowed.");
     }
-  }
-};
+  };
 
-  // Delete auction function
   const deleteAuction = async () => {
     const { error } = await supabase
       .from('livestock')
@@ -160,6 +140,43 @@ const handleAction = async (actionType) => {
     } else {
       Alert.alert("Success", "Auction deleted successfully.");
       navigation.goBack();
+    }
+  };
+
+  const startChat = async () => {
+    try {
+      const { data: conversationData, error } = await supabase
+        .from('conversations')
+        .select('conversation_id')
+        .eq('auction_id', item.livestock_id)
+        .eq('bidder_id', userId)
+        .eq('seller_id', item.owner_id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+
+      if (conversationData) {
+        navigation.navigate('ChatPage', {
+          conversationId: conversationData.conversation_id,
+          userId: userId,
+          item: { ...item, seller_id: item.owner_id, bidder_id: userId },
+        });
+      } else {
+        const { data: newConversation, error: createError } = await supabase
+          .from('conversations')
+          .insert([{ auction_id: item.livestock_id, seller_id: item.owner_id, bidder_id: userId }])
+          .single();
+
+        if (createError) throw createError;
+
+        navigation.navigate('ChatPage', {
+          conversationId: newConversation.conversation_id,
+          userId: userId,
+          item: { ...item, seller_id: item.owner_id, bidder_id: userId },
+        });
+      }
+    } catch (error) {
+      Alert.alert("Error", "Could not start the chat. Please try again.");
     }
   };
 
@@ -182,7 +199,6 @@ const handleAction = async (actionType) => {
 
   return (
     <View style={styles.container}>
-      {/* Dynamic Image Section with Loading Indicator */}
       <View style={styles.imageContainer}>
         {imageLoading && (
           <ActivityIndicator size="large" color="#405e40" style={styles.imageLoader} />
@@ -194,14 +210,12 @@ const handleAction = async (actionType) => {
         />
       </View>
 
-      {/* Content Section with Info Container */}
       <View style={styles.contentContainer}>
         <View style={styles.infoContainer}>
           <Text style={styles.header}>{item.category.toUpperCase()}</Text>
           <Text style={styles.subHeader}>Weight: {item.weight}kg   Breed: {item.breed}</Text>
         </View>
 
-        {/* Seller Details Section */}
         <View style={styles.sellerContainer}>
           <Image style={styles.avatar} source={{ uri: 'https://via.placeholder.com/50' }} />
           <View style={styles.sellerInfo}>
@@ -210,23 +224,24 @@ const handleAction = async (actionType) => {
           </View>
         </View>
 
-        {/* Price and Bid Section */}
-        <View style={styles.priceContainer}>
-          <Text style={styles.label}>Starting Price</Text>
-          <Text style={styles.priceText}>₱{item.starting_price?.toLocaleString()}</Text>
-          
-          <Text style={styles.label}>Latest Bid</Text>
-          <Text style={styles.priceText}>₱{latestBid?.toLocaleString() || 'No bids yet'}</Text>
-          
-          <Text style={styles.timeRemaining}>Time Remaining: {item.time_remaining || 'Not available'}</Text>
+        <View style={styles.priceSection}>
+          <View style={styles.priceContainer}>
+            <Text style={styles.priceLabel}>Starting Price</Text>
+            <Text style={styles.priceText}>₱{item.starting_price?.toLocaleString()}</Text>
+          </View>
+          <View style={styles.priceContainer}>
+            <Text style={styles.priceLabel}>Latest Bid</Text>
+            <Text style={styles.priceText}>₱{latestBid?.toLocaleString() || 'No bids yet'}</Text>
+          </View>
         </View>
 
-        {/* Unified Button Container */}
+        <Text style={styles.timeRemaining}>Time Remaining: {timeRemaining || 'Loading...'}</Text>
+
         <View style={styles.buttonContainer}>
           <TouchableOpacity style={styles.button} onPress={() => handleAction(isCreator ? "Delete" : "Chat")}>
             <Text style={styles.buttonText}>{isCreator ? "Delete" : "Chat"}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={() => handleAction(isCreator ? "Edit" : "Bid")}>
+          <TouchableOpacity style={[styles.button, timeRemaining === "Auction Ended" ? styles.disabledButton : null]} onPress={() => handleAction(isCreator ? "Edit" : "Bid")} disabled={timeRemaining === "Auction Ended"}>
             <Text style={styles.buttonText}>{isCreator ? "Edit" : "Bid"}</Text>
           </TouchableOpacity>
         </View>
@@ -237,30 +252,11 @@ const handleAction = async (actionType) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  imageContainer: {
-    width: '100%',
-    height: 200,
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  mainImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  imageLoader: {
-    position: 'absolute',
-    zIndex: 1,
-  },
+  imageContainer: { width: '100%', height: 200, position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  mainImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  imageLoader: { position: 'absolute', zIndex: 1 },
   contentContainer: { flex: 1, paddingHorizontal: 20 },
-  infoContainer: {
-    padding: 20,
-    backgroundColor: '#f8f8f8',
-    borderRadius: 8,
-    marginBottom: 20,
-  },
+  infoContainer: { padding: 20, backgroundColor: '#f8f8f8', borderRadius: 8, marginBottom: 20 },
   header: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 10 },
   subHeader: { fontSize: 16, color: '#555', textAlign: 'center', marginBottom: 20 },
   sellerContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
@@ -268,23 +264,16 @@ const styles = StyleSheet.create({
   sellerInfo: { flex: 1 },
   label: { fontSize: 16, fontWeight: 'bold', color: '#333' },
   infoText: { fontWeight: 'normal', color: '#555' },
-  priceContainer: { marginBottom: 20 },
-  priceText: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', color: '#333', marginVertical: 5 },
-  timeRemaining: { textAlign: 'center', color: '#777' },
+  priceSection: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  priceContainer: { flex: 1, alignItems: 'center', padding: 15, backgroundColor: '#f2f2f2', borderRadius: 8, marginHorizontal: 5 },
+  priceLabel: { fontSize: 16, color: '#555' },
+  priceText: { fontSize: 20, fontWeight: 'bold', color: '#333', marginTop: 5 },
+  timeRemaining: { textAlign: 'center', color: '#777', marginVertical: 10, fontSize: 16 },
   buttonContainer: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 20 },
-  button: {
-    backgroundColor: '#335441',
-    padding: 10,
-    borderRadius: 5,
-    width: '40%',
-    alignItems: 'center',
-  },
+  button: { backgroundColor: '#335441', padding: 10, borderRadius: 5, width: '40%', alignItems: 'center' },
+  disabledButton: { backgroundColor: '#ccc' },
   buttonText: { color: '#fff', fontWeight: 'bold' },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });
 
 export default LivestockAuctionDetailPage;
