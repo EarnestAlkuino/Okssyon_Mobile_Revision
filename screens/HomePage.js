@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert, Image, Dimensions } from 'react-native'; // Added Dimensions
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../supabase';
@@ -10,6 +10,8 @@ import CarabaoIcon from '../assets/Carabao1.svg';
 import GoatIcon from '../assets/Goat1.svg';
 import PigIcon from '../assets/Pig1.svg';
 import logo from '../assets/logo1.png';
+
+const { width } = Dimensions.get('window');
 
 const HomePage = ({ navigation, route }) => {
   const { userId: userIdFromRoute } = route.params || {};
@@ -139,9 +141,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 30,
-    top: 25,
-    paddingVertical: 50,
+    paddingHorizontal: 20,
+    paddingVertical: 40,
+    marginTop: 25,
   },
   helloText: {
     fontSize: 20,
@@ -171,6 +173,7 @@ const styles = StyleSheet.create({
     paddingVertical: 38,
     paddingHorizontal: 15,
     alignItems: 'center',
+    backgroundColor: '#e5f2e1',
   },
   announcementText: {
     fontSize: 22,
@@ -213,7 +216,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     marginVertical: 10,
-    marginHorizontal: 10,
+    marginHorizontal: width < 350 ? 8 : 12, // Adjust margins based on screen width
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
     paddingVertical: 20,
@@ -241,7 +244,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   columnWrapper: {
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     paddingHorizontal: 10,
   },
   grid: {
@@ -250,6 +253,50 @@ const styles = StyleSheet.create({
   flatList: {
     flex: 1,
   },
+
+  // Livestock section with responsiveness
+  livestockSection: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  livestockCard: {
+    width: width < 350 ? '45%' : width < 600 ? '30%' : '24%', // Adjust width based on screen size
+    marginVertical: 10,
+    marginHorizontal: '1%',
+    paddingVertical: 20,
+    paddingHorizontal: 15,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 2,
+    alignItems: 'center',
+    minWidth: 100,
+  },
+  livestockImage: {
+    width: '60%',
+    height: 80,
+    resizeMode: 'contain',
+    marginBottom: 10,
+  },
+  livestockText: {
+    fontSize: 16,
+    color: '#405e40',
+    fontWeight: 'bold',
+  },
+
+  largeScreen: {
+    iconButton: {
+      width: '40%',
+    },
+    livestockCard: {
+      width: '24%',
+    },
+  },
 });
+
 
 export default HomePage;

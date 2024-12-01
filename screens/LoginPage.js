@@ -1,14 +1,36 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert, Image } from 'react-native';
-import Button from '../Components/Button'; // Reusable button component
-import { supabase } from '../supabase'; // Assuming you have configured Supabase
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  Alert,
+  Image,
+  TouchableOpacity,
+} from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import Button from '../Components/Button';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // For storing user preferences
+import { supabase } from '../supabase';
 
 const LoginPage = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isPasswordVisible, setPasswordVisible] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
-  // Sign in function
+  useEffect(() => {
+    const loadRememberedEmail = async () => {
+      const savedEmail = await AsyncStorage.getItem('rememberedEmail');
+      if (savedEmail) {
+        setEmail(savedEmail);
+        setRememberMe(true);
+      }
+    };
+    loadRememberedEmail();
+  }, []);
+
   async function signInWithEmail() {
     setLoading(true);
 
@@ -18,7 +40,7 @@ const LoginPage = ({ navigation }) => {
     });
 
     if (error) {
-      Alert.alert("Login Error", error.message);
+      Alert.alert('Login Error', error.message);
       setLoading(false);
       return;
     }
@@ -26,7 +48,7 @@ const LoginPage = ({ navigation }) => {
     const user = data?.user;
 
     if (!user) {
-      Alert.alert("Login Error", "User not found or authentication failed.");
+      Alert.alert('Login Error', 'User not found or authentication failed.');
       setLoading(false);
       return;
     }
@@ -41,6 +63,12 @@ const LoginPage = ({ navigation }) => {
       Alert.alert('Error fetching profile:', profileError.message);
       setLoading(false);
       return;
+    }
+
+    if (rememberMe) {
+      await AsyncStorage.setItem('rememberedEmail', email);
+    } else {
+      await AsyncStorage.removeItem('rememberedEmail');
     }
 
     Alert.alert(`Welcome, ${profile.full_name}!`);
@@ -69,16 +97,42 @@ const LoginPage = ({ navigation }) => {
           onChangeText={setEmail}
           autoCapitalize="none"
         />
-        <TextInput
-          style={styles.input}
-          placeholder="PASSWORD"
-          placeholderTextColor="#808080"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-          autoCapitalize="none"
-        />
-        <View style={styles.forgotPasswordContainer}>
+        <View style={styles.passwordWrapper}>
+          <TextInput
+            style={styles.input}
+            placeholder="PASSWORD"
+            placeholderTextColor="#808080"
+            secureTextEntry={!isPasswordVisible}
+            value={password}
+            onChangeText={setPassword}
+            autoCapitalize="none"
+          />
+          <TouchableOpacity
+            style={styles.icon}
+            onPress={() => setPasswordVisible(!isPasswordVisible)}
+          >
+            <Icon
+              name={isPasswordVisible ? 'visibility' : 'visibility-off'}
+              size={24}
+              color="#808080"
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Remember Me and Forgot Password */}
+        <View style={styles.inlineContainer}>
+          <TouchableOpacity
+            style={styles.rememberMeContainer}
+            onPress={() => setRememberMe(!rememberMe)}
+          >
+            <Icon
+              name={rememberMe ? 'check-box' : 'check-box-outline-blank'}
+              size={24}
+              color="#335441"
+            />
+            <Text style={styles.rememberMeText}>Remember Me</Text>
+          </TouchableOpacity>
+
           <Button
             title="Forgot Password?"
             onPress={() => navigation.navigate('ForgotPasswordScreen')}
@@ -153,10 +207,31 @@ const styles = StyleSheet.create({
     borderColor: '#335441',
     borderRadius: 10,
     paddingHorizontal: 10,
+    paddingRight: 45,
     marginBottom: 15,
   },
-  forgotPasswordContainer: {
-    alignItems: 'flex-end',
+  passwordWrapper: {
+    position: 'relative',
+    width: '100%',
+  },
+  icon: {
+    position: 'absolute',
+    right: 15,
+    top: 10,
+  },
+  inlineContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  rememberMeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rememberMeText: {
+    color: '#335441',
+    marginLeft: 5,
+    fontSize: 15,
   },
   forgotPasswordButton: {
     backgroundColor: 'transparent',
@@ -181,6 +256,7 @@ const styles = StyleSheet.create({
   signUpContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 15,
   },
   signUpPrompt: {
     color: '#808080',
