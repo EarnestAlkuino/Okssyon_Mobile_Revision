@@ -33,7 +33,7 @@
     "expo-keep-awake": "~14.0.1",
     "expo-linear-gradient": "~14.0.1",
     "expo-media-library": "~17.0.3",
-    "expo-notifications": "~0.29.8",
+    "expo-notifications": "^0.29.10",
     "expo-splash-screen": "~0.29.13",
     "expo-status-bar": "~2.0.0",
     "react": "18.3.1",
@@ -53,12 +53,8 @@
     "react-native-tab-view": "^3.5.2",
     "react-native-url-polyfill": "^2.0.0",
     "react-native-vector-icons": "^10.2.0",
-<<<<<<< HEAD
-    "react-native-web": "~0.19.10",
-    "tus-js-client": "^4.2.3",
-=======
     "react-native-web": "~0.19.13",
->>>>>>> 0842ac7b309e997343e200cdf0a76de034f44329
+    "tus-js-client": "^4.2.3",
     "typescript": "~5.3.3"
   },
   "devDependencies": {

@@ -97,6 +97,7 @@ const PostPage = ({ navigation }) => {
       const proofPath = proofOfOwnership ? await uploadImage(proofOfOwnership.uri, `proofs/${Date.now()}_proof`) : null;
       const vetPath = vetCertificate ? await uploadImage(vetCertificate.uri, `certificates/${Date.now()}_vet`) : null;
 
+      // Insert data with an approval status (set to false initially)
       const { data, error } = await supabase.from('livestock').insert([{
         owner_id: userId,
         category,
@@ -110,12 +111,28 @@ const PostPage = ({ navigation }) => {
         starting_price: parseFloat(startingPriceInput),
         location,
         auction_start: auctionStart,
-        auction_end: auctionEnd,
+        auction_end: auctionEnd, // Add this line to set livestock as unapproved initially
+        status: 'PENDING', // Set initial status to PENDING
       }]);
 
       if (error) throw error;
-      Alert.alert("Success", "Your livestock has been uploaded for auction.");
+
+      Alert.alert("Success", "Your livestock has been submitted for review. It will be available for auction once approved by the admin.");
       navigation.goBack();
+    } catch (error) {
+      Alert.alert("Error", error.message);
+    }
+  };
+
+  const approveLivestock = async (livestockId) => {
+    try {
+      const { data, error } = await supabase
+        .from('livestock')
+        .update({ approved: true, status: 'AVAILABLE' }) // Set status to AVAILABLE when approved
+        .eq('id', livestockId);
+
+      if (error) throw error;
+      Alert.alert("Success", "Livestock approved and now available for auction.");
     } catch (error) {
       Alert.alert("Error", error.message);
     }
@@ -223,8 +240,8 @@ const PostPage = ({ navigation }) => {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setAuctionStartPickerVisible(true)} style={styles.auctionTimeButton}>
-            <Text style={styles.auctionTimeText}>{`Auction Start: ${auctionStart.toLocaleDateString()} ${auctionStart.toLocaleTimeString()}`}</Text>
+          <TouchableOpacity onPress={() => setAuctionStartPickerVisible(true)} style={styles.datePickerButton}>
+            <Text style={styles.datePickerText}>Set Auction Start</Text>
           </TouchableOpacity>
           <DateTimePickerModal
             isVisible={isAuctionStartPickerVisible}
@@ -233,8 +250,8 @@ const PostPage = ({ navigation }) => {
             onCancel={() => setAuctionStartPickerVisible(false)}
           />
 
-          <TouchableOpacity onPress={() => setAuctionEndPickerVisible(true)} style={styles.auctionTimeButton}>
-            <Text style={styles.auctionTimeText}>{`Auction End: ${auctionEnd.toLocaleDateString()} ${auctionEnd.toLocaleTimeString()}`}</Text>
+          <TouchableOpacity onPress={() => setAuctionEndPickerVisible(true)} style={styles.datePickerButton}>
+            <Text style={styles.datePickerText}>Set Auction End</Text>
           </TouchableOpacity>
           <DateTimePickerModal
             isVisible={isAuctionEndPickerVisible}
@@ -242,17 +259,11 @@ const PostPage = ({ navigation }) => {
             onConfirm={handleAuctionEndConfirm}
             onCancel={() => setAuctionEndPickerVisible(false)}
           />
-          <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.uploadButtonGreen} onPress={handleSubmit}>
-            <Text style={styles.uploadButtonText}>Upload</Text>
-          </TouchableOpacity>
-        </View>
-        </View>
 
-        
+          <TouchableOpacity onPress={handleSubmit} style={styles.submitButton}>
+            <Text style={styles.submitText}>Submit for Approval</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
@@ -261,142 +272,100 @@ const PostPage = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#fff',
   },
   scrollViewContent: {
-    flexGrow: 1,
-    padding: 15,
-    paddingBottom: 100,
+    paddingBottom: 20,
   },
   formContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    padding: 15,
+    padding: 16,
   },
   label: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    color: '#333',
+    fontSize: 18,
+    marginBottom: 8,
+  },
+  inputContainer: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  picker: {
+    height: 50,
+    width: '100%',
+    paddingLeft: 8,
   },
   uploadButton: {
-    width: '100%',
-    height: 120,
-    backgroundColor: '#e0e0e0',
-    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
     alignItems: 'center',
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  uploadText: {
-    fontSize: 14,
-    color: '#888',
-  },
-  imagePreview: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 10,
   },
   iconTextContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
   },
-  inputContainer: {
-    marginBottom: 10,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 5,
+  uploadText: {
+    color: '#888',
+    fontSize: 16,
+    marginTop: 8,
   },
-  picker: {
-    height: 40,
-    padding: 30,
+  imagePreview: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
   },
   doubleInputContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 16,
   },
   doubleInput: {
-    flex: 0.48,
-    height: 40,
-    borderColor: '#ccc',
+    width: '48%',
+    padding: 10,
     borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 7,
-    backgroundColor: '#f0f0f0',
+    borderColor: '#ccc',
+    borderRadius: 8,
   },
   input: {
-    height: 45,
+    padding: 10,
+    borderWidth: 1,
     borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    justifyContent: 'center',
-    marginBottom: 10,
-    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    marginBottom: 16,
   },
-  auctionTimeButton: {
-    height: 45,
-    backgroundColor: '#e8f4ea',
-    borderColor: '#a3d9a5',
-    borderWidth: 1,
-    borderRadius: 5,
-    justifyContent: 'center',
+  datePickerButton: {
+    padding: 16,
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+    marginBottom: 16,
     alignItems: 'center',
-    marginBottom: 10,
   },
-  auctionTimeText: {
-    color: '#335441',
+  datePickerText: {
+    color: '#fff',
     fontSize: 16,
+  },
+  submitButton: {
+    backgroundColor: '#4CAF50',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  submitText: {
+    color: '#fff',
+    fontSize: 18,
   },
   documentUploadButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e0e0e0',
-    borderRadius: 5,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    marginBottom: 10,
-    justifyContent: 'center',
+    marginBottom: 16,
   },
   documentUploadText: {
-    color: '#888',
-    marginLeft: 5,
-    fontSize: 14,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    marginBottom: 40,
-  },
-  cancelButton: {
-    width: '48%',
-    backgroundColor: '#fff',
-    borderColor: '#335441',
-    borderWidth: 1,
-    borderRadius: 5,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  cancelButtonText: {
-    color: '#335441',
-    fontSize: 14,
-  },
-  uploadButtonGreen: {
-    width: '48%',
-    backgroundColor: '#335441',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 5,
-    paddingVertical: 10,
-  },
-  uploadButtonText: {
-    color: '#fff',
-    fontSize: 14,
+    fontSize: 16,
+    marginLeft: 8,
   },
 });
-
 
 export default PostPage;

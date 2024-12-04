@@ -18,7 +18,8 @@ const AuctionPage = ({ navigation, route }) => {
       const { data, error } = await supabase
         .from('livestock')
         .select('*')
-        .eq('category', category);
+        .eq('category', category)
+        .eq('status', 'AVAILABLE'); // Only fetch livestock with 'AVAILABLE' status
 
       if (error) {
         console.error("Error fetching data:", error.message);
@@ -87,7 +88,7 @@ const AuctionPage = ({ navigation, route }) => {
         />
       ) : (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No livestock available in this category.</Text>
+          <Text style={styles.emptyText}>No available livestock in this category.</Text>
         </View>
       )}
     </View>
