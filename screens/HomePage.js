@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert, Image, Dimensions } from 'react-native'; // Added Dimensions
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../supabase';
@@ -11,12 +11,11 @@ import GoatIcon from '../assets/Goat1.svg';
 import PigIcon from '../assets/Pig1.svg';
 import logo from '../assets/logo1.png';
 
-const { width } = Dimensions.get('window');
-
 const HomePage = ({ navigation, route }) => {
   const { userId: userIdFromRoute } = route.params || {};
   const [userName, setUserName] = useState('');
   const [loading, setLoading] = useState(true);
+
   const [announcement, setAnnouncement] = useState('Upcoming Auction!');
   const [announcementDate, setAnnouncementDate] = useState('October 20, 2024');
 
@@ -67,14 +66,12 @@ const HomePage = ({ navigation, route }) => {
     return (
       <TouchableOpacity
         style={styles.iconButton}
-        onPress={() => {
-          console.log("Navigating to AuctionPage with category:", item.title, "and userId:", userIdFromRoute);
-          navigation.navigate('AuctionPage', { category: item.title, userId: userIdFromRoute });
-        }}
+        onPress={() => navigation.navigate('AuctionPage', { category: item.title, userId: userIdFromRoute })}
       >
         <View style={styles.iconContainer}>
           <IconComponent width={88} height={90} fill="#ffffff" />
-          <Text style={styles.categoryTitle}>{item.title}</Text>
+          {/* Remove the label */}
+          {/* <Text style={styles.categoryTitle}>{item.title}</Text> */}
         </View>
       </TouchableOpacity>
     );
@@ -96,9 +93,10 @@ const HomePage = ({ navigation, route }) => {
           <Text style={styles.helloText}>Hello, {userName}</Text>
           <Text style={styles.welcomeText}>Welcome! You can start bidding now.</Text>
         </View>
-        <TouchableOpacity style={styles.searchIcon} onPress={() => navigation.navigate('SearchPage')}>
+        {/* Remove the search icon block */}
+        {/* <TouchableOpacity style={styles.searchIcon} onPress={() => navigation.navigate('SearchPage')}>
           <Ionicons name="search" size={24} color="#405e40" />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </View>
 
       <Image source={logo} style={styles.logo} />
@@ -123,7 +121,7 @@ const HomePage = ({ navigation, route }) => {
         data={auctionCategories}
         renderItem={renderCategoryItem}
         keyExtractor={(item) => item.id}
-        numColumns={3}
+        numColumns={3} 
         columnWrapperStyle={styles.columnWrapper}
         contentContainerStyle={styles.grid}
         style={styles.flatList}
@@ -131,6 +129,7 @@ const HomePage = ({ navigation, route }) => {
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {
@@ -215,88 +214,41 @@ const styles = StyleSheet.create({
   iconButton: {
     flex: 1,
     alignItems: 'center',
-    marginVertical: 10,
-    marginHorizontal: width < 350 ? 8 : 12, // Adjust margins based on screen width
+    margin: 5, 
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
     paddingVertical: 20,
-    paddingHorizontal: 50,
-    paddingBottom: 30,
+    paddingHorizontal: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 5,
     elevation: 2,
+    minWidth: 100,
+    maxWidth: 120, 
   },
   iconContainer: {
     alignItems: 'center',
   },
   categoryTitle: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#405e40',
     fontWeight: 'bold',
     textAlign: 'center',
-    marginTop: 5,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginTop: 8,
   },
   columnWrapper: {
     justifyContent: 'space-between',
     paddingHorizontal: 10,
   },
-  grid: {
-    paddingBottom: 250,
-  },
   flatList: {
     flex: 1,
   },
-
-  // Livestock section with responsiveness
-  livestockSection: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  livestockCard: {
-    width: width < 350 ? '45%' : width < 600 ? '30%' : '24%', // Adjust width based on screen size
-    marginVertical: 10,
-    marginHorizontal: '1%',
-    paddingVertical: 20,
-    paddingHorizontal: 15,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 2,
-    alignItems: 'center',
-    minWidth: 100,
-  },
-  livestockImage: {
-    width: '60%',
-    height: 80,
-    resizeMode: 'contain',
-    marginBottom: 10,
-  },
-  livestockText: {
-    fontSize: 16,
-    color: '#405e40',
-    fontWeight: 'bold',
-  },
-
-  largeScreen: {
-    iconButton: {
-      width: '40%',
-    },
-    livestockCard: {
-      width: '24%',
-    },
+  grid: {
+    paddingTop: 25,
+    paddingBottom: 100,
+    paddingHorizontal: 10,
   },
 });
-
 
 export default HomePage;
