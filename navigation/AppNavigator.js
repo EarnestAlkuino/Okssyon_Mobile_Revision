@@ -23,6 +23,7 @@ import LivestockAuctionDetailPage from '../screens/LivestockAuctionDetailPage';
 import ChatPage from '../screens/ChatPage';
 import BidPage from '../screens/BidPage';
 import EditAuctionPage from '../screens/EditAuctionPage';
+import ForumPage from '../screens/ForumPage';
 
 const Stack = createStackNavigator();
 
@@ -134,6 +135,11 @@ const AppNavigator = () => {
           <Stack.Screen
         name="EditAuctionPage"
         component={EditAuctionPage}
+        options={{headerShown: false}}
+        />
+        <Stack.Screen
+        name='ForumPage'
+        component={ForumPage}
         options={{headerShown: false}}
         />
         <Stack.Screen

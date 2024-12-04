@@ -7,12 +7,14 @@ import { supabase } from '../supabase';
 
 const NotificationPage = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState('Recent');
-  const [notifications, setNotifications] = useState([]); 
-  const [announcements, setAnnouncements] = useState([]); 
+  const [notifications, setNotifications] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
+  // Request notification permissions
   useEffect(() => {
     const getNotificationPermissions = async () => {
       const { status } = await Notifications.getPermissionsAsync();
@@ -23,13 +25,13 @@ const NotificationPage = ({ navigation }) => {
     getNotificationPermissions();
   }, []);
 
+  // Hide splash screen and fetch data
   useEffect(() => {
     const hideSplashScreen = async () => {
       await SplashScreen.hideAsync();
     };
     hideSplashScreen();
 
-    // Fetch initial data
     fetchNotifications();
     fetchAnnouncements();
 
@@ -37,9 +39,19 @@ const NotificationPage = ({ navigation }) => {
     const notificationChannel = supabase
       .channel('notifications')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, async (payload) => {
-        const { message } = payload.new;
-        await sendPushNotification('New Notification', message);
+        const { message, notification_type, bidder_id, seller_id } = payload.new;
+
+        // Send notifications for both roles (Bidder and Seller)
+        if (bidder_id) {
+          await sendPushNotification('Bidder Notification', message);
+        }
+        if (seller_id) {
+          await sendPushNotification('Seller Notification', message);
+        }
+
+        // Update notifications in local state
         setNotifications((prevNotifications) => [payload.new, ...prevNotifications]);
+        setUnreadCount((prevCount) => prevCount + 1);
       })
       .subscribe();
 
@@ -53,49 +65,46 @@ const NotificationPage = ({ navigation }) => {
       })
       .subscribe();
 
-    // Clean up listeners on unmount
+    // Cleanup listeners on unmount
     return () => {
       supabase.removeChannel(notificationChannel);
       supabase.removeChannel(announcementChannel);
     };
   }, []);
 
+  // Fetch notifications
   const fetchNotifications = async () => {
     setLoading(true);
     try {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !sessionData?.session) {
-        setError("User not logged in");
-        setLoading(false);
-        return;
+        throw new Error('User not logged in');
       }
-  
+
       const userId = sessionData.session.user.id;
-  
-      const { data: sellerNotifications } = await supabase
+      const { data: userNotifications, error: notifError } = await supabase
         .from('notifications')
         .select('*')
-        .eq('seller_id', userId)
-        .eq('recipient_role', 'SELLER')
+        .eq('recipient_id', userId)
         .order('created_at', { ascending: false });
-  
-      const { data: bidderNotifications } = await supabase
-        .from('notifications')
-        .select('*, notification_bidders!inner(bidder_id)')
-        .eq('notification_bidders.bidder_id', userId)
-        .eq('recipient_role', 'BIDDER')
-        .order('created_at', { ascending: false });
-  
-      const combinedNotifications = [...(sellerNotifications || []), ...(bidderNotifications || [])];
-      combinedNotifications.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-      setNotifications(combinedNotifications);
+
+      if (notifError) {
+        throw new Error('Failed to fetch notifications');
+      }
+
+      setNotifications(userNotifications);
+
+      // Update unread notifications count
+      const unreadNotifications = userNotifications.filter((notif) => !notif.is_read);
+      setUnreadCount(unreadNotifications.length);
     } catch (err) {
-      setError("Failed to load notifications");
+      setError(err.message || 'Unexpected error occurred');
     } finally {
       setLoading(false);
     }
   };
-  
+
+  // Fetch announcements
   const fetchAnnouncements = async () => {
     const { data, error } = await supabase
       .from('announcements')
@@ -103,7 +112,7 @@ const NotificationPage = ({ navigation }) => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      setError("Failed to load announcements");
+      setError('Failed to load announcements');
     } else {
       setAnnouncements(data);
     }
@@ -119,50 +128,55 @@ const NotificationPage = ({ navigation }) => {
         },
         trigger: null,
       });
-      console.log("Push notification sent successfully.");
     } catch (error) {
-      console.error("Failed to send push notification:", error);
+      console.error('Failed to send push notification:', error);
     }
   };
 
+  // Handle tab change (Recent vs All Notifications)
   const handleTabChange = (tab) => {
     setActiveTab(tab);
   };
 
+  // Handle notification press (mark as read, navigate to relevant page)
   const handleNotificationPress = async (item) => {
     if (item.notification_id && !item.is_read) {
       await supabase
         .from('notifications')
         .update({ is_read: true })
         .eq('notification_id', item.notification_id);
-      fetchNotifications();
+      setNotifications((prevNotifications) =>
+        prevNotifications.map((notif) =>
+          notif.notification_id === item.notification_id ? { ...notif, is_read: true } : notif
+        )
+      );
+      setUnreadCount((prevCount) => prevCount - 1);
     }
 
-    if (item.livestock_id) {
+    // Navigate based on notification type
+    if (item.notification_type === 'NEW_FORUM_QUESTION' || item.notification_type === 'NEW_FORUM_ANSWER') {
+      navigation.navigate('ForumPage', { itemId: item.livestock_id, userId: item.user_id });
+    } else if (item.livestock_id) {
       navigation.navigate('LivestockAuctionDetailPage', { itemId: item.livestock_id });
     }
   };
 
-  const renderNotificationItem = ({ item }) => {
-    const isAnnouncement = item.id && !item.notification_id; // Distinguish between announcement and notification
+  // Render notification item in list
+  const renderNotificationItem = ({ item }) => (
+    <TouchableOpacity
+      onPress={() => handleNotificationPress(item)}
+      style={styles.notificationItemContainer}
+    >
+      <View style={[styles.notificationItem, item.is_read ? {} : styles.unreadNotification]}>
+        <Text style={styles.contentText}>{item.message}</Text>
+        <Text style={styles.timestampText}>{new Date(item.created_at).toLocaleString()}</Text>
+        {/* Optional: You can show an icon or marker for unread notifications */}
+        {!item.is_read && <Text style={styles.unreadMarker}>•</Text>}
+      </View>
+    </TouchableOpacity>
+  );
 
-    return (
-      <TouchableOpacity
-        onPress={() => !isAnnouncement && handleNotificationPress(item)}
-        style={styles.notificationItemContainer}
-      >
-        <View style={[styles.notificationItem, item.is_read ? {} : styles.unreadNotification]}>
-          <Text style={styles.contentText}>
-            {isAnnouncement ? item.text : item.message}
-          </Text>
-          <Text style={styles.timestampText}>
-            {new Date(item.created_at).toLocaleString()}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
+  // Handle pull-to-refresh
   const onRefresh = () => {
     setRefreshing(true);
     fetchNotifications();
@@ -170,18 +184,9 @@ const NotificationPage = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  const unreadCount = notifications.filter((notif) => !notif.is_read).length;
-  const allItems = [...notifications, ...announcements];
-  const filteredItems = activeTab === 'Recent' ? allItems.slice(0, 5) : allItems;
-
   return (
     <View style={styles.container}>
-      <Header 
-        title="Notifications"
-        showBackButton={false}
-        showSettingsButton={false}
-        onBackPress={() => navigation.goBack()}
-      />
+      <Header title="Notifications" showBackButton={false} showSettingsButton={false} onBackPress={() => navigation.goBack()} />
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'Recent' ? styles.activeTab : styles.inactiveTab]}
@@ -195,9 +200,7 @@ const NotificationPage = ({ navigation }) => {
           style={[styles.tab, activeTab === 'All Notifications' ? styles.activeTab : styles.inactiveTab]}
           onPress={() => handleTabChange('All Notifications')}
         >
-          <Text style={activeTab === 'All Notifications' ? styles.activeTabText : styles.inactiveTabText}>
-            All Notifications
-          </Text>
+          <Text style={activeTab === 'All Notifications' ? styles.activeTabText : styles.inactiveTabText}>All Notifications</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.contentContainer}>
@@ -207,7 +210,7 @@ const NotificationPage = ({ navigation }) => {
           <Text style={styles.errorText}>{error}</Text>
         ) : (
           <FlatList
-            data={filteredItems}
+            data={notifications}
             keyExtractor={(item) => item.notification_id || item.id.toString()}
             renderItem={renderNotificationItem}
             ListEmptyComponent={<Text style={styles.noNotificationsText}>No notifications available</Text>}
@@ -235,34 +238,37 @@ const styles = StyleSheet.create({
   tab: {
     flex: 1,
     alignItems: 'center',
+    flex: 1,
+    alignItems: 'center',
     paddingVertical: 10,
   },
   activeTab: {
-    borderBottomWidth: 2,
+    borderBottomWidth: 3,
     borderColor: '#257446',
   },
   inactiveTab: {
-    borderBottomWidth: 1,
+    borderBottomWidth: 3,
     borderColor: 'transparent',
   },
   activeTabText: {
+    fontSize: 16,
+    fontWeight: 'bold',
     color: '#257446',
-    fontWeight: '600',
   },
   inactiveTabText: {
-    color: '#6B7280',
+    fontSize: 16,
+    color: '#9E9E9E',
   },
   contentContainer: {
     flex: 1,
-    paddingHorizontal: 15,
-    paddingTop: 10,
+    padding: 15,
   },
   notificationItemContainer: {
-    marginBottom: 10,
+    marginBottom: 15,
   },
   notificationItem: {
-    padding: 15,
     backgroundColor: '#FFFFFF',
+    padding: 15,
     borderRadius: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -271,29 +277,36 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   unreadNotification: {
-    backgroundColor: '#EBF8EB',
+    backgroundColor: '#E0F7FA', // Light blue background for unread notifications
   },
   contentText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#374151',
+    fontSize: 14,
+    color: '#333333',
   },
   timestampText: {
     fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 4,
+    color: '#999999',
+    marginTop: 5,
+  },
+  unreadMarker: {
+    fontSize: 16,
+    color: '#257446',
+    position: 'absolute',
+    top: 15,
+    right: 15,
   },
   errorText: {
-    fontSize: 16,
-    color: 'red',
     textAlign: 'center',
+    color: 'red',
+    fontSize: 16,
   },
   noNotificationsText: {
     textAlign: 'center',
     fontSize: 16,
-    color: '#6B7280',
-    marginTop: 20,
+    color: '#9E9E9E',
   },
 });
 
 export default NotificationPage;
+
+   

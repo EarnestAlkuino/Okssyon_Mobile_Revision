@@ -86,7 +86,7 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
 
       if (remainingTime <= 0) {
         clearInterval(timer);
-        setTimeRemaining("Auction Ended");
+        setTimeRemaining('Auction Ended');
       } else {
         const days = Math.floor(remainingTime / (1000 * 60 * 60 * 24));
         const hours = Math.floor((remainingTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -98,7 +98,6 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
       }
     }, 1000);
 
-    // Clear the interval when the component unmounts
     return () => clearInterval(timer);
   };
 
@@ -121,8 +120,8 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
     } else if (timeRemaining !== "Auction Ended") {
       if (actionType === 'Bid') {
         navigation.navigate('BidPage', { item, userId, ownerId: item.owner_id });
-      } else if (actionType === 'Chat') {
-        startChat();
+      } else if (actionType === 'Ask') {
+        navigation.navigate('ForumPage', { item, userId });
       }
     } else {
       Alert.alert("Auction Ended", "This auction has ended. Bidding is no longer allowed.");
@@ -140,43 +139,6 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
     } else {
       Alert.alert("Success", "Auction deleted successfully.");
       navigation.goBack();
-    }
-  };
-
-  const startChat = async () => {
-    try {
-      const { data: conversationData, error } = await supabase
-        .from('conversations')
-        .select('conversation_id')
-        .eq('auction_id', item.livestock_id)
-        .eq('bidder_id', userId)
-        .eq('seller_id', item.owner_id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') throw error;
-
-      if (conversationData) {
-        navigation.navigate('ChatPage', {
-          conversationId: conversationData.conversation_id,
-          userId: userId,
-          item: { ...item, seller_id: item.owner_id, bidder_id: userId },
-        });
-      } else {
-        const { data: newConversation, error: createError } = await supabase
-          .from('conversations')
-          .insert([{ auction_id: item.livestock_id, seller_id: item.owner_id, bidder_id: userId }])
-          .single();
-
-        if (createError) throw createError;
-
-        navigation.navigate('ChatPage', {
-          conversationId: newConversation.conversation_id,
-          userId: userId,
-          item: { ...item, seller_id: item.owner_id, bidder_id: userId },
-        });
-      }
-    } catch (error) {
-      Alert.alert("Error", "Could not start the chat. Please try again.");
     }
   };
 
@@ -238,8 +200,8 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
         <Text style={styles.timeRemaining}>Time Remaining: {timeRemaining || 'Loading...'}</Text>
 
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.button} onPress={() => handleAction(isCreator ? "Delete" : "Chat")}>
-            <Text style={styles.buttonText}>{isCreator ? "Delete" : "Chat"}</Text>
+          <TouchableOpacity style={styles.button} onPress={() => handleAction(isCreator ? "Delete" : "Ask")}>
+            <Text style={styles.buttonText}>{isCreator ? "Delete" : "Ask"}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.button, timeRemaining === "Auction Ended" ? styles.disabledButton : null]} onPress={() => handleAction(isCreator ? "Edit" : "Bid")} disabled={timeRemaining === "Auction Ended"}>
             <Text style={styles.buttonText}>{isCreator ? "Edit" : "Bid"}</Text>
@@ -249,6 +211,7 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
