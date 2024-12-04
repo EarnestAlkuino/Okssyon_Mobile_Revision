@@ -1,24 +1,24 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Image, StyleSheet, Alert } from 'react-native';
-import Button from '../Components/Button'; // Reusable button component
-import { supabase } from '../supabase'; // Assuming you have configured Supabase
+import { View, Text, TextInput, Image, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import Button from '../Components/Button'; 
+import { supabase } from '../supabase'; 
 
 const SignUpPage = ({ navigation }) => {
-  const [fullName, setFullName] = useState(''); // Full name input
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isPasswordVisible, setPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Sign up function
   async function signUpWithEmail() {
-    // Check if passwords match
     if (password !== confirmPassword) {
       Alert.alert("Passwords do not match");
       return;
     }
 
-    // Basic validation
     if (!fullName || !email || !password) {
       Alert.alert('Please fill in all fields.');
       return;
@@ -26,7 +26,6 @@ const SignUpPage = ({ navigation }) => {
 
     setLoading(true);
 
-    // Step 1: Sign up the user with email and password
     const { error, data } = await supabase.auth.signUp({
       email: email,
       password: password,
@@ -38,9 +37,8 @@ const SignUpPage = ({ navigation }) => {
       return;
     }
 
-    const user = data.user; // Get the user object
+    const user = data.user;
 
-    // Step 2: Insert full name and email into 'profiles' table
     const { error: profileError } = await supabase
       .from('profiles')
       .insert([{ id: user.id, full_name: fullName, email: email }]);
@@ -49,7 +47,7 @@ const SignUpPage = ({ navigation }) => {
       Alert.alert('Error inserting profile:', profileError.message);
     } else {
       Alert.alert('Please check your inbox for email verification!');
-      navigation.navigate('LoginPage'); // Navigate to LoginPage after signup
+      navigation.navigate('LoginPage');
     }
 
     setLoading(false);
@@ -57,16 +55,13 @@ const SignUpPage = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Logo */}
       <Image source={require('../assets/logo1.png')} style={styles.logo} />
 
-      {/* Welcome Text */}
       <View style={styles.textContainer}>
         <Text style={styles.welcomeText}>Create Account!</Text>
         <Text style={styles.subText}>Sign up to get started</Text>
       </View>
 
-      {/* Input fields */}
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
@@ -84,27 +79,50 @@ const SignUpPage = ({ navigation }) => {
           onChangeText={setEmail}
           autoCapitalize="none"
         />
-        <TextInput
-          style={styles.input}
-          placeholder="PASSWORD"
-          placeholderTextColor="#808080"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-          autoCapitalize="none"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="CONFIRM PASSWORD"
-          placeholderTextColor="#808080"
-          secureTextEntry
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          autoCapitalize="none"
-        />
+        <View style={[styles.input, styles.passwordContainer]}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="PASSWORD"
+            placeholderTextColor="#808080"
+            secureTextEntry={!isPasswordVisible}
+            value={password}
+            onChangeText={setPassword}
+            autoCapitalize="none"
+          />
+          <TouchableOpacity
+            onPress={() => setPasswordVisible(!isPasswordVisible)}
+            style={styles.eyeIconContainer}
+          >
+            <Icon
+              name={isPasswordVisible ? 'visibility' : 'visibility-off'}
+              size={24}
+              color="#808080"
+            />
+          </TouchableOpacity>
+        </View>
+        <View style={[styles.input, styles.passwordContainer]}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="CONFIRM PASSWORD"
+            placeholderTextColor="#808080"
+            secureTextEntry={!isConfirmPasswordVisible}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            autoCapitalize="none"
+          />
+          <TouchableOpacity
+            onPress={() => setConfirmPasswordVisible(!isConfirmPasswordVisible)}
+            style={styles.eyeIconContainer}
+          >
+            <Icon
+              name={isConfirmPasswordVisible ? 'visibility' : 'visibility-off'}
+              size={24}
+              color="#808080"
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Sign Up Button */}
       <View style={styles.buttonContainer}>
         <Button
           title="Sign Up"
@@ -115,12 +133,11 @@ const SignUpPage = ({ navigation }) => {
         />
       </View>
 
-      {/* Already have an account? */}
       <View style={styles.loginContainer}>
         <Text style={styles.loginPrompt}>Already have an account?</Text>
         <Button
           title="Log In"
-          onPress={() => navigation.navigate('LoginPage')} // Navigate to LoginPage
+          onPress={() => navigation.navigate('LoginPage')}
           style={styles.loginButton}
           textStyle={styles.loginText}
         />
@@ -134,7 +151,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     justifyContent: 'center',
-    alignItems: 'flex-start', // Align items to the start (left)
+    alignItems: 'flex-start',
     backgroundColor: '#fff',
   },
   logo: {
@@ -147,19 +164,19 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   textContainer: {
-    alignItems: 'flex-start', // Align text to the left
-    width: '100%', // Make sure it takes full width
-    marginBottom: 30, // Space between the texts and input fields
+    alignItems: 'flex-start',
+    width: '100%',
+    marginBottom: 30,
   },
   welcomeText: {
     fontSize: 30,
     fontWeight: 'bold',
-    color: '#335441', // Dark green text
+    color: '#335441',
     marginBottom: 5,
   },
   subText: {
     fontSize: 16,
-    color: '#808080', // Light grey text
+    color: '#808080',
   },
   inputContainer: {
     width: '100%',
@@ -168,30 +185,40 @@ const styles = StyleSheet.create({
   input: {
     height: 45,
     borderWidth: 1,
-    borderColor: '#335441', // Dark green border color
+    borderColor: '#335441',
     borderRadius: 10,
     paddingHorizontal: 10,
     marginBottom: 15,
+    width: '100%',
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  passwordInput: {
+    flex: 1,
+  },
+  eyeIconContainer: {
+    padding: 5,
   },
   buttonContainer: {
-    width: '100%', // Full width for the button container
-    alignItems: 'flex-start', // Align button to the left
+    width: '100%',
   },
   signUpButton: {
-    backgroundColor: '#335441', // Dark green background
+    backgroundColor: '#335441',
     paddingVertical: 10,
     borderRadius: 10,
-    width: '100%', // Full width for the button
+    width: '100%',
   },
   signUpButtonText: {
     color: '#fff',
     fontSize: 15,
     fontWeight: 'bold',
-    textAlign: 'center', // Center text inside the button
+    textAlign: 'center',
   },
   loginContainer: {
     flexDirection: 'row',
-    alignItems: 'center', 
+    alignItems: 'center',
   },
   loginPrompt: {
     color: '#808080',
