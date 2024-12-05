@@ -23,6 +23,7 @@ const PostPage = ({ navigation }) => {
   const [weightInput, setWeightInput] = useState('');
   const [startingPriceInput, setStartingPriceInput] = useState('');
   const [location, setLocation] = useState('');
+  const [quantityInput, setQuantityInput] = useState(''); // Declare quantity state
   const [userId, setUserId] = useState(null);
 
   useEffect(() => {
@@ -91,13 +92,19 @@ const PostPage = ({ navigation }) => {
       Alert.alert("Error", "User ID not found. Please log in again.");
       return;
     }
-
+  
     try {
+      // Ensure auction_end is greater than auction_start
+      if (auctionEnd <= auctionStart) {
+        Alert.alert("Error", "Auction end time must be greater than auction start time.");
+        return;
+      }
+  
       const imagePath = image ? await uploadImage(image, `livestock/${Date.now()}_image`) : null;
       const proofPath = proofOfOwnership ? await uploadImage(proofOfOwnership.uri, `proofs/${Date.now()}_proof`) : null;
       const vetPath = vetCertificate ? await uploadImage(vetCertificate.uri, `certificates/${Date.now()}_vet`) : null;
-
-      // Insert data with an approval status (set to false initially)
+  
+      // Insert data into the livestock table
       const { data, error } = await supabase.from('livestock').insert([{
         owner_id: userId,
         category,
@@ -111,32 +118,20 @@ const PostPage = ({ navigation }) => {
         starting_price: parseFloat(startingPriceInput),
         location,
         auction_start: auctionStart,
-        auction_end: auctionEnd, // Add this line to set livestock as unapproved initially
-        status: 'PENDING', // Set initial status to PENDING
+        auction_end: auctionEnd,
+        quantity: parseInt(quantityInput), // Save quantity in the table
+        status: 'PENDING',
       }]);
-
+  
       if (error) throw error;
-
+  
       Alert.alert("Success", "Your livestock has been submitted for review. It will be available for auction once approved by the admin.");
       navigation.goBack();
     } catch (error) {
       Alert.alert("Error", error.message);
     }
   };
-
-  const approveLivestock = async (livestockId) => {
-    try {
-      const { data, error } = await supabase
-        .from('livestock')
-        .update({ approved: true, status: 'AVAILABLE' }) // Set status to AVAILABLE when approved
-        .eq('id', livestockId);
-
-      if (error) throw error;
-      Alert.alert("Success", "Livestock approved and now available for auction.");
-    } catch (error) {
-      Alert.alert("Error", error.message);
-    }
-  };
+  
 
   return (
     <View style={styles.container}>
@@ -218,7 +213,6 @@ const PostPage = ({ navigation }) => {
             value={startingPriceInput}
             onChangeText={setStartingPriceInput}
           />
-
           <TextInput
             placeholder="Location"
             style={styles.input}
@@ -226,7 +220,15 @@ const PostPage = ({ navigation }) => {
             onChangeText={setLocation}
           />
 
-          <TouchableOpacity onPress={() => pickDocument(setProofOfOwnership)} style={styles.documentUploadButton}>
+          <TextInput
+            placeholder="Quantity"
+            style={styles.input}
+            keyboardType="numeric"
+            value={quantityInput}  // Ensure quantityInput is being used correctly
+            onChangeText={setQuantityInput}  // Correct reference to setQuantityInput
+          />
+
+<TouchableOpacity onPress={() => pickDocument(setProofOfOwnership)} style={styles.documentUploadButton}>
             <View style={styles.iconTextContainer}>
               <Ionicons name="document-outline" size={20} color="#888" />
               <Text style={styles.documentUploadText}>Upload Proof of Ownership</Text>
@@ -250,6 +252,8 @@ const PostPage = ({ navigation }) => {
             onCancel={() => setAuctionStartPickerVisible(false)}
           />
 
+    
+
           <TouchableOpacity onPress={() => setAuctionEndPickerVisible(true)} style={styles.datePickerButton}>
             <Text style={styles.datePickerText}>Set Auction End</Text>
           </TouchableOpacity>
@@ -259,6 +263,8 @@ const PostPage = ({ navigation }) => {
             onConfirm={handleAuctionEndConfirm}
             onCancel={() => setAuctionEndPickerVisible(false)}
           />
+
+
 
           <TouchableOpacity onPress={handleSubmit} style={styles.submitButton}>
             <Text style={styles.submitText}>Submit for Approval</Text>
