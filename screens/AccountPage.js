@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 15,
-    marginTop: 20, // Lower the header content by adding margin at the top
+    marginTop: 20,
   },
   backButton: {
     marginRight: 10,

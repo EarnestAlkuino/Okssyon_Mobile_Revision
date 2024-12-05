@@ -70,8 +70,6 @@ const HomePage = ({ navigation, route }) => {
       >
         <View style={styles.iconContainer}>
           <IconComponent width={88} height={90} fill="#ffffff" />
-          {/* Remove the label */}
-          {/* <Text style={styles.categoryTitle}>{item.title}</Text> */}
         </View>
       </TouchableOpacity>
     );
@@ -91,12 +89,8 @@ const HomePage = ({ navigation, route }) => {
       <View style={styles.topSection}>
         <View>
           <Text style={styles.helloText}>Hello, {userName}</Text>
-          <Text style={styles.welcomeText}>Welcome! You can start bidding now.</Text>
+          <Text style={styles.welcomeText}>Welcome! You can start your transaction now.</Text>
         </View>
-        {/* Remove the search icon block */}
-        {/* <TouchableOpacity style={styles.searchIcon} onPress={() => navigation.navigate('SearchPage')}>
-          <Ionicons name="search" size={24} color="#405e40" />
-        </TouchableOpacity> */}
       </View>
 
       <Image source={logo} style={styles.logo} />

@@ -131,7 +131,6 @@ const PostPage = ({ navigation }) => {
       Alert.alert("Error", error.message);
     }
   };
-  
 
   return (
     <View style={styles.container}>
@@ -224,50 +223,50 @@ const PostPage = ({ navigation }) => {
             placeholder="Quantity"
             style={styles.input}
             keyboardType="numeric"
-            value={quantityInput}  // Ensure quantityInput is being used correctly
-            onChangeText={setQuantityInput}  // Correct reference to setQuantityInput
+            value={quantityInput} 
+            onChangeText={setQuantityInput}  
           />
-
-<TouchableOpacity onPress={() => pickDocument(setProofOfOwnership)} style={styles.documentUploadButton}>
-            <View style={styles.iconTextContainer}>
-              <Ionicons name="document-outline" size={20} color="#888" />
-              <Text style={styles.documentUploadText}>Upload Proof of Ownership</Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => pickDocument(setVetCertificate)} style={styles.documentUploadButton}>
-            <View style={styles.iconTextContainer}>
-              <Ionicons name="document-text-outline" size={20} color="#888" />
-              <Text style={styles.documentUploadText}>Upload Vet Certificate</Text>
-            </View>
-          </TouchableOpacity>
 
           <TouchableOpacity onPress={() => setAuctionStartPickerVisible(true)} style={styles.datePickerButton}>
             <Text style={styles.datePickerText}>Set Auction Start</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => setAuctionEndPickerVisible(true)} style={styles.datePickerButton}>
+            <Text style={styles.datePickerText}>Set Auction End</Text>
+          </TouchableOpacity> 
+
+  
+          <View style={styles.rowContainer}>
+            <TouchableOpacity onPress={() => pickDocument(setProofOfOwnership)} style={[styles.documentUploadButton, styles.flexButton]}>
+              <View style={styles.iconTextContainer}>
+                <Ionicons name="document-outline" size={20} color="#888" />
+                <Text style={styles.uploadText}>Upload Proof of Ownership</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => pickDocument(setVetCertificate)} style={[styles.documentUploadButton, styles.flexButton]}>
+              <View style={styles.iconTextContainer}>
+                <Ionicons name="document-text-outline" size={20} color="#888" />
+                <Text style={styles.uploadText}>Upload Vet Certificate</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
           <DateTimePickerModal
             isVisible={isAuctionStartPickerVisible}
             mode="datetime"
             onConfirm={handleAuctionStartConfirm}
             onCancel={() => setAuctionStartPickerVisible(false)}
           />
-
-    
-
-          <TouchableOpacity onPress={() => setAuctionEndPickerVisible(true)} style={styles.datePickerButton}>
-            <Text style={styles.datePickerText}>Set Auction End</Text>
-          </TouchableOpacity>
           <DateTimePickerModal
             isVisible={isAuctionEndPickerVisible}
             mode="datetime"
             onConfirm={handleAuctionEndConfirm}
             onCancel={() => setAuctionEndPickerVisible(false)}
           />
-
-
-
+          
           <TouchableOpacity onPress={handleSubmit} style={styles.submitButton}>
-            <Text style={styles.submitText}>Submit for Approval</Text>
+            <Text style={styles.submitButtonText}>Submit Listing</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -276,102 +275,154 @@ const PostPage = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { 
+    flex: 1, 
     backgroundColor: '#fff',
+    paddingBottom: 70, 
   },
   scrollViewContent: {
-    paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 30, 
   },
   formContainer: {
-    padding: 16,
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 10,
+    marginBottom: 20,
+    borderColor: '#ddd',
   },
   label: {
-    fontSize: 18,
-    marginBottom: 8,
+    fontSize: 16,
+    marginVertical: 5,
+    fontWeight: '600',
   },
   inputContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    marginBottom: 16,
+    borderColor: '#ddd',
+    marginVertical: 10,
   },
   picker: {
     height: 50,
     width: '100%',
-    paddingLeft: 8,
+    borderRadius: 5,
+  },
+  input: {
+    height: 45,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    marginVertical: 10,
+    paddingHorizontal: 10,
+    fontSize: 16,
+  },
+  doubleInputContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 10,
+  },
+  doubleInput: {
+    width: '48%',
+    height: 45,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    fontSize: 16,
   },
   uploadButton: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    height: 100,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    marginVertical: 20,
+    backgroundColor: '#f9f9f9',
+  },
+  imagePreview: {
+    width: 100,
+    height: 100,
+    resizeMode: 'contain',
+    borderRadius: 10,
   },
   iconTextContainer: {
     alignItems: 'center',
   },
   uploadText: {
-    color: '#888',
-    fontSize: 16,
-    marginTop: 8,
-  },
-  imagePreview: {
-    width: 200,
-    height: 200,
-    borderRadius: 8,
-  },
-  doubleInputContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  doubleInput: {
-    width: '48%',
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-  },
-  input: {
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    marginBottom: 16,
+    marginTop: 5,
+    fontSize: 14,
+    color: '#555',
   },
   datePickerButton: {
-    padding: 16,
-    backgroundColor: '#4CAF50',
-    borderRadius: 8,
-    marginBottom: 16,
+    backgroundColor: '#335441', 
+    padding: 15,
+    borderRadius: 5,
     alignItems: 'center',
+    marginVertical: 10,
   },
   datePickerText: {
     color: '#fff',
     fontSize: 16,
   },
   submitButton: {
-    backgroundColor: '#4CAF50',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
+    backgroundColor: '#335441', 
+    padding: 15,
+    borderRadius: 5,
     alignItems: 'center',
+    marginTop: 20,
   },
-  submitText: {
+  submitButtonText: {
     color: '#fff',
     fontSize: 18,
   },
-  documentUploadButton: {
+  rowContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'space-between',
+    marginVertical: 10,
   },
-  documentUploadText: {
-    fontSize: 16,
-    marginLeft: 8,
+  documentUploadButton: {
+    backgroundColor: '#f9f9f9',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    padding: 15,
+    borderRadius: 10,
+    width: '48%',
+    alignItems: 'center',
+  },
+  flexButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 20,
+  },
+  button: {
+    backgroundColor: '#335441', 
+    padding: 10,
+    borderRadius: 5,
+    width: '40%',
+    alignItems: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#ccc', 
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
+
 
 export default PostPage;
