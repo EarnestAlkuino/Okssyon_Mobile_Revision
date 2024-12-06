@@ -8,36 +8,42 @@ const Pns3 = () => {
   // Fetch data from Supabase
   useEffect(() => {
     const fetchData = async () => {
-      const { data: prices, error } = await supabase
-        .from('pns3_prices')
-        .select('*');
+      try {
+        // Fetch prices directly from the pns3_prices table
+        const { data: prices, error } = await supabase
+          .from('pns3_prices') // Adjust to correct table name
+          .select('*');
 
-      if (error) {
-        console.error('Error fetching data:', error);
-      } else {
+        if (error) {
+          console.error('Error fetching data:', error);
+          return;
+        }
+
         // Organize data by animal for easier mapping in the component
         const organizedData = prices.reduce((acc, item) => {
-          const { animal, weight_range, label, price_value } = item;
+          const { animal, weight_range, label, price } = item; // Use 'price' instead of 'price_value'
           const existingAnimal = acc.find((a) => a.animal === animal);
 
           if (existingAnimal) {
-            existingAnimal.prices.push({ label, value: price_value });
+            existingAnimal.prices.push({ label, value: price }); // Use 'price' here
           } else {
             acc.push({
               animal,
               weightRange: weight_range,
-              prices: [{ label, value: price_value }],
+              prices: [{ label, value: price }], // Use 'price' here
             });
           }
           return acc;
         }, []);
 
         setData(organizedData);
+      } catch (error) {
+        console.error('Error fetching data:', error.message);
       }
     };
 
     fetchData();
-  }, []);
+  }, []); // Empty dependency array means this effect runs only once when the component mounts
 
   return (
     <ScrollView style={styles.scrollContainer}>

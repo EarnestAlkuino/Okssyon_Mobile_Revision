@@ -9,31 +9,29 @@ const Pns2 = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch animals and their weight ranges
-        const { data: animals, error: animalError } = await supabase
-          .from('pns2_animals')
+        // Fetch prices directly from the pns2_prices table
+        const { data: prices, error } = await supabase
+          .from('pns2_prices') // Adjust to correct table name
           .select('*');
 
-        if (animalError) throw new Error(animalError.message);
+        if (error) throw new Error(error.message);
 
-        // Fetch prices with animal_id references
-        const { data: prices, error: priceError } = await supabase
-          .from('pns2_prices')
-          .select('*');
+        // Organize data by animal for easier mapping in the component
+        const organizedData = prices.reduce((acc, item) => {
+          const { animal, weight_range, label, price } = item; // Use 'price' instead of 'price_value'
+          const existingAnimal = acc.find((a) => a.animal === animal);
 
-        if (priceError) throw new Error(priceError.message);
-
-        // Combine animal and price data
-        const organizedData = animals.map((animal) => {
-          const animalPrices = prices
-            .filter((price) => price.animal_id === animal.id)
-            .map((price) => ({ label: price.label, value: price.price_value }));
-          return {
-            animal: animal.animal,
-            weightRange: animal.weight_range,
-            prices: animalPrices,
-          };
-        });
+          if (existingAnimal) {
+            existingAnimal.prices.push({ label, value: price }); // Use 'price' here
+          } else {
+            acc.push({
+              animal,
+              weightRange: weight_range,
+              prices: [{ label, value: price }], // Use 'price' here
+            });
+          }
+          return acc;
+        }, []);
 
         setData(organizedData);
       } catch (error) {
@@ -42,21 +40,21 @@ const Pns2 = () => {
     };
 
     fetchData();
-  }, []);
+  }, []); // Empty dependency array means this effect runs only once when the component mounts
 
   return (
     <ScrollView style={styles.scrollContainer}>
       {data.map((item, animalIndex) => (
         <View key={animalIndex} style={styles.card}>
           <View style={styles.headerRow}>
-            <Text style={styles.animalText}>{item.animal}</Text>  
-            <Text style={styles.weightRangeText}>{item.weightRange}</Text>  
+            <Text style={styles.animalText}>{item.animal}</Text>
+            <Text style={styles.weightRangeText}>{item.weightRange}</Text>
           </View>
           <View style={styles.priceBox}>
             {item.prices.map((price, priceIndex) => (
               <View key={priceIndex} style={styles.priceRow}>
-                <Text style={styles.priceLabel}>{price.label}</Text>  
-                <Text style={styles.priceValue}>{price.value}</Text>  
+                <Text style={styles.priceLabel}>{price.label}</Text>
+                <Text style={styles.priceValue}>{price.value}</Text>
               </View>
             ))}
           </View>
