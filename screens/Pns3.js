@@ -21,14 +21,14 @@ const Pns3 = () => {
 
         // Organize data by animal for easier mapping in the component
         const organizedData = prices.reduce((acc, item) => {
-          const { animal, weight_range, label, price } = item; // Use 'price' instead of 'price_value'
-          const existingAnimal = acc.find((a) => a.animal === animal);
+          const { livestock, weight_range, label, price } = item; // Use 'price' instead of 'price_value'
+          const existinglivestock = acc.find((a) => a.livestock === livestock);
 
-          if (existingAnimal) {
-            existingAnimal.prices.push({ label, value: price }); // Use 'price' here
+          if (existinglivestock) {
+            existinglivestock.prices.push({ label, value: price }); // Use 'price' here
           } else {
             acc.push({
-              animal,
+              livestock,
               weightRange: weight_range,
               prices: [{ label, value: price }], // Use 'price' here
             });
@@ -47,10 +47,10 @@ const Pns3 = () => {
 
   return (
     <ScrollView style={styles.scrollContainer}>
-      {data.map((item, animalIndex) => (
-        <View key={animalIndex} style={styles.card}>
+      {data.map((item, livestockIndex) => (
+        <View key={livestockIndex} style={styles.card}>
           <View style={styles.headerRow}>
-            <Text style={styles.animalText}>{item.animal}</Text>
+            <Text style={styles.livestockText}>{item.livestock}</Text>
             <Text style={styles.weightRangeText}>{item.weightRange}</Text>
           </View>
           <View style={styles.priceBox}>
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 10,
   },
-  animalText: {
+  livestockText: {
     fontSize: 18,
     fontWeight: 'bold',
   },
