@@ -74,63 +74,168 @@ const PostPage = ({ navigation }) => {
     setAuctionEndPickerVisible(false);
   };
 
-  const uploadImage = async (uri, path) => {
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    const { data, error } = await supabase.storage
-      .from('images')
-      .upload(path, blob, {
-        cacheControl: '3600',
-        upsert: false,
+  const uploadFileToSupabase = async (file, fileName, userId) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const projectId = 'ikvsahtemgarvhkvaftl'; // Replace with your Supabase project ID
+    const bucketName = 'livestock_documents';
+  
+    return new Promise((resolve, reject) => {
+      const upload = new Upload(file, {
+        endpoint: `https://${projectId}.supabase.co/storage/v1/upload/resumable`,
+        retryDelays: [0, 3000, 5000, 10000, 20000],
+        headers: {
+          authorization: `Bearer ${session?.access_token}`,
+          'x-upsert': 'true',
+        },
+        uploadDataDuringCreation: true,
+        removeFingerprintOnSuccess: true,
+        metadata: {
+          bucketName,
+          objectName: fileName,
+          contentType: file.type || 'application/octet-stream',
+        },
+        chunkSize: 6 * 1024 * 1024,
+        onError: function (error) {
+          console.error('Upload failed:', error);
+          reject(error);
+        },
+        onProgress: function (bytesUploaded, bytesTotal) {
+          const percentage = ((bytesUploaded / bytesTotal) * 100).toFixed(2);
+          console.log(`${percentage}% uploaded`);
+        },
+        onSuccess: async function () {
+          const publicUrl = `https://${projectId}.supabase.co/storage/v1/object/public/${bucketName}/${fileName}`;
+  
+          // Insert the livestock document URL into your table
+          const { error } = await supabase
+            .from('livestock') // Adjust this table name as needed
+            .insert({
+              owner_id: userId,
+              document_url: publicUrl, // Add relevant column for storing URL
+              uploaded_at: new Date().toISOString(),
+            });
+  
+          if (error) {
+            console.error('Database insertion error:', error);
+            Alert.alert('Error', 'Failed to update livestock document URL.');
+            reject(error);
+          } else {
+            Alert.alert('Success', 'Document uploaded successfully!');
+            resolve(publicUrl);
+          }
+        },
       });
-    if (error) throw error;
-    return data.path;
+  
+      upload.start();
+    });
   };
-
+  
   const handleSubmit = async () => {
     if (!userId) {
-      Alert.alert("Error", "User ID not found. Please log in again.");
+      console.log('Error: User ID not found.');
+      Alert.alert('Error', 'User ID not found. Please log in again.');
       return;
     }
   
+    if (
+      !category ||
+      !gender ||
+      !breedInput ||
+      !ageInput ||
+      !weightInput ||
+      !startingPriceInput ||
+      !location ||
+      !quantityInput
+    ) {
+      console.log('Error: Missing required fields.');
+      Alert.alert('Error', 'All fields are required. Please fill in all details.');
+      return;
+    }
+  
+    const now = new Date();
+    console.log('Auction start:', auctionStart);
+    console.log('Auction end:', auctionEnd);
+    if (auctionStart <= now) {
+      console.log('Error: Auction start time must be in the future.');
+      Alert.alert('Error', 'Auction start time must be in the future.');
+      return;
+    }
+    if (auctionEnd <= auctionStart) {
+      console.log('Error: Auction end time must be greater than auction start time.');
+      Alert.alert('Error', 'Auction end time must be greater than auction start time.');
+      return;
+    }
+  
+    const isConnected = await Network.getNetworkStateAsync();
+    console.log('Network status:', isConnected);
+    if (!isConnected.isConnected) {
+      console.log('Error: No internet connection.');
+      Alert.alert('No Internet', 'Please check your internet connection and try again.');
+      return;
+    }
+  
+    setLoading(true);
     try {
-      // Ensure auction_end is greater than auction_start
-      if (auctionEnd <= auctionStart) {
-        Alert.alert("Error", "Auction end time must be greater than auction start time.");
-        return;
+      const uploads = {};
+      console.log('Starting file uploads...');
+  
+      if (image) {
+        const imageFileName = `livestock-image-${Date.now()}.jpg`;
+        console.log(`Uploading image: ${imageFileName}`);
+        uploads.imagePath = await uploadFileToSupabase(image, imageFileName, userId);
+        console.log('Image uploaded to:', uploads.imagePath);
       }
   
-      const imagePath = image ? await uploadImage(image, `livestock/${Date.now()}_image`) : null;
-      const proofPath = proofOfOwnership ? await uploadImage(proofOfOwnership.uri, `proofs/${Date.now()}_proof`) : null;
-      const vetPath = vetCertificate ? await uploadImage(vetCertificate.uri, `certificates/${Date.now()}_vet`) : null;
+      if (proofOfOwnership) {
+        const proofFileName = `proof-of-ownership-${Date.now()}.pdf`;
+        console.log(`Uploading proof of ownership: ${proofFileName}`);
+        uploads.proofPath = await uploadFileToSupabase(proofOfOwnership, proofFileName, userId);
+        console.log('Proof of ownership uploaded to:', uploads.proofPath);
+      }
   
-      // Insert data into the livestock table
-      const { data, error } = await supabase.from('livestock').insert([{
+      if (vetCertificate) {
+        const vetFileName = `vet-certificate-${Date.now()}.pdf`;
+        console.log(`Uploading vet certificate: ${vetFileName}`);
+        uploads.vetPath = await uploadFileToSupabase(vetCertificate, vetFileName, userId);
+        console.log('Vet certificate uploaded to:', uploads.vetPath);
+      }
+  
+      console.log('File uploads completed. Preparing to insert data into Supabase.');
+      const livestockData = {
         owner_id: userId,
         category,
         gender,
-        image_url: imagePath,
-        proof_of_ownership_url: proofPath,
-        vet_certificate_url: vetPath,
         breed: breedInput,
         age: parseInt(ageInput),
         weight: parseFloat(weightInput),
         starting_price: parseFloat(startingPriceInput),
         location,
-        auction_start: auctionStart,
-        auction_end: auctionEnd,
-        quantity: parseInt(quantityInput), // Save quantity in the table
+        auction_start: auctionStart.toISOString(),
+        auction_end: auctionEnd.toISOString(),
+        quantity: parseInt(quantityInput),
         status: 'PENDING',
-      }]);
+        ...uploads,
+      };
   
-      if (error) throw error;
+      console.log('Livestock data to insert:', livestockData);
+      const { error: dbError } = await supabase.from('livestock').insert(livestockData);
+      if (dbError) {
+        console.error('Database insertion error:', dbError);
+        throw dbError;
+      }
   
-      Alert.alert("Success", "Your livestock has been submitted for review. It will be available for auction once approved by the admin.");
+      console.log('Data inserted successfully.');
+      Alert.alert('Success', 'Your livestock has been submitted for review.');
       navigation.goBack();
     } catch (error) {
-      Alert.alert("Error", error.message);
+      console.error('Error in handleSubmit:', error);
+      Alert.alert('Error', 'Submission failed. Please try again.');
+    } finally {
+      setLoading(false);
+      console.log('Submission process completed.');
     }
   };
+  
 
   return (
     <View style={styles.container}>

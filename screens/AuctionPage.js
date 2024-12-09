@@ -10,30 +10,37 @@ const AuctionPage = ({ navigation, route }) => {
   const [livestockData, setLivestockData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchLivestockData = async () => { 
+  const fetchLivestockData = async () => {
     console.log("Fetching data for category:", category);
     setLoading(true);
-
+  
     try {
       const { data, error } = await supabase
         .from('livestock')
         .select('*')
         .eq('category', category)
         .eq('status', 'AVAILABLE'); // Only fetch livestock with 'AVAILABLE' status
-
+  
       if (error) {
         console.error("Error fetching data:", error.message);
         Alert.alert("Error", `Failed to fetch livestock data: ${error.message}`);
       } else {
-        console.log("Fetched livestock data:", data);
-        setLivestockData(data);
+        // Filter out livestock where auction_end has passed
+        const currentTime = new Date().toISOString();
+        const activeLivestock = data.filter(
+          (item) => new Date(item.auction_end).getTime() > new Date(currentTime).getTime()
+        );
+  
+        console.log("Filtered active livestock data:", activeLivestock);
+        setLivestockData(activeLivestock);
       }
     } catch (err) {
       console.error("Unexpected error:", err);
     }
-
+  
     setLoading(false);
   };
+  
 
   useEffect(() => {
     if (isFocused && category) {

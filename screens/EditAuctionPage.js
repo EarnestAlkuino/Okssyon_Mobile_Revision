@@ -14,7 +14,7 @@ const EditAuctionPage = ({ route, navigation }) => {
       const { data, error } = await supabase
         .from('livestock')
         .select('*')
-        .eq('id', itemId)
+        .eq('livestock_id', itemId)
         .single();
 
       if (error) {
@@ -22,13 +22,29 @@ const EditAuctionPage = ({ route, navigation }) => {
         console.error("Error fetching auction details:", error);
         navigation.goBack();
       } else {
-        console.log("Fetched Item Data:", data);
         setItem(data);
       }
       setLoading(false);
     };
 
     fetchItem();
+
+    // Real-time subscription for updates
+    const subscription = supabase
+      .channel('livestock_changes')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'livestock', filter: `livestock_id=eq.${itemId}` },
+        (payload) => {
+          console.log('Real-time update:', payload.new);
+          setItem(payload.new);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   }, [itemId]);
 
   const handleSave = async () => {
@@ -47,14 +63,13 @@ const EditAuctionPage = ({ route, navigation }) => {
         starting_price: item.starting_price,
         location: item.location,
       })
-      .eq('id', itemId);
+      .eq('livestock_id', itemId);
 
     if (error) {
       console.error("Save Error:", error);
       Alert.alert('Error', 'Failed to save changes.');
     } else {
       Alert.alert('Success', 'Auction updated successfully.');
-      navigation.goBack();
     }
     setSaving(false);
   };
@@ -130,7 +145,7 @@ const EditAuctionPage = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#fff' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
+  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
   label: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 5 },
   input: {
     borderWidth: 1,

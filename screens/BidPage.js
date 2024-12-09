@@ -85,17 +85,30 @@ const BidPage = ({ route, navigation }) => {
       return;
     }
   
+    if (parsedBidAmount <= currentHighestBid) {
+      Alert.alert(
+        'Invalid Bid',
+        `Your bid must be higher than the current highest bid of ₱${currentHighestBid.toLocaleString()}.`
+      );
+      return;
+    }
+  
     setLoading(true);
   
     try {
-      if (parsedBidAmount <= currentHighestBid) {
-        Alert.alert(
-          'Invalid Bid',
-          `Your bid must be higher than the current highest bid of ₱${currentHighestBid.toLocaleString()}.`
-        );
-        setLoading(false);
-        return;
+      // Fetch the current highest bidder
+      const { data: highestBidderData, error: highestBidderError } = await supabase
+        .from('bids')
+        .select('bidder_id, bid_amount')
+        .eq('livestock_id', item.livestock_id)
+        .order('bid_amount', { ascending: false })
+        .limit(1);
+  
+      if (highestBidderError) {
+        throw highestBidderError;
       }
+  
+      const currentHighestBidder = highestBidderData?.[0]?.bidder_id;
   
       // Insert the new bid into the 'bids' table
       const { error: bidError } = await supabase.from('bids').insert([{
@@ -109,17 +122,21 @@ const BidPage = ({ route, navigation }) => {
         throw bidError;
       }
   
-      // Send notification to the seller
+      // Update the highest bid state after placing the bid
+      setCurrentHighestBid(parsedBidAmount);
+  
+      // Notify the seller about the new bid
       if (userId !== ownerId) {
         const sellerMessage = `A new bid of ₱${parsedBidAmount.toLocaleString()} has been placed on your livestock!`;
         const { error: sellerNotifError } = await supabase
           .from('notifications')
           .insert([{
-            livestock_id: item.livestock_id,  // Link to the livestock being bid on
+            livestock_id: item.livestock_id,
             recipient_id: ownerId,  // Seller's ID
-            recipient_role: 'SELLER',  // Role is 'SELLER'
+            recipient_role: 'SELLER',
+            notification_type: 'NEW_BID',  // Enum for NEW_BID
             message: sellerMessage,
-            is_read: false,  // Assuming the notification is unread
+            is_read: false,
           }]);
   
         if (sellerNotifError) {
@@ -129,26 +146,48 @@ const BidPage = ({ route, navigation }) => {
         }
       }
   
-      // Send notification to the bidder (user placing the bid)
+      // Notify the current highest bidder about being outbid
+      if (currentHighestBidder && currentHighestBidder !== userId) {
+        const outbidMessage = `You have been outbid on the auction for ${item.category || 'this item'}. Place a higher bid to win!`;
+        const { error: outbidNotifError } = await supabase
+          .from('notifications')
+          .insert([{
+            livestock_id: item.livestock_id,
+            recipient_id: currentHighestBidder,  // Previous highest bidder
+            recipient_role: 'BIDDER',
+            notification_type: 'OUTBID',  // Enum for OUTBID
+            message: outbidMessage,
+            is_read: false,
+          }]);
+  
+        if (outbidNotifError) {
+          console.error('Error inserting outbid notification:', outbidNotifError);
+        } else {
+          console.log('Notification inserted for outbid successfully!');
+        }
+      }
+  
+      // Notify the bidder about the success of their bid
       const bidderMessage = `You have successfully placed a bid of ₱${parsedBidAmount.toLocaleString()} on this livestock!`;
       const { error: bidderNotifError } = await supabase
         .from('notifications')
         .insert([{
-          livestock_id: item.livestock_id,  // Link to the livestock being bid on
-          recipient_id: userId,  // Bidder's ID (important!)
-          recipient_role: 'BIDDER',  // Role is 'BIDDER'
+          livestock_id: item.livestock_id,
+          recipient_id: userId,  // Current bidder's ID
+          recipient_role: 'BIDDER',
+          notification_type: 'NEW_BID',  // Enum for NEW_BID
           message: bidderMessage,
-          is_read: false,  // Assuming the notification is unread
+          is_read: false,
         }]);
   
       if (bidderNotifError) {
         console.error('Error inserting bidder notification:', bidderNotifError);
       } else {
-        console.log('Notification inserted for bidder successfully!');
       }
   
-      Alert.alert('Success', 'Your bid has been placed!');
-      setBidAmount('');  // Reset bid amount after placing the bid
+      // Success Alert
+      Alert.alert('Success', `You have successfully placed a bid of ₱${parsedBidAmount.toLocaleString()}.`);
+  
     } catch (error) {
       console.error('Error placing bid or sending notification:', error);
       Alert.alert('Error', 'Could not place your bid or send notification. Please try again later.');
@@ -156,6 +195,7 @@ const BidPage = ({ route, navigation }) => {
       setLoading(false);
     }
   };
+  
   
 
   const addToBid = (amount) => {
