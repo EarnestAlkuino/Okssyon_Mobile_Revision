@@ -33,71 +33,181 @@ const ForumPage = ({ route, navigation }) => {
   const [threads, setThreads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
+  const [livestockDetails, setLivestockDetails] = useState({
+    breed: 'Unknown',
+    weight: 'Unknown',
+  });
 
   useEffect(() => {
     fetchThreads();
-  }, []);
+    fetchLivestockDetails(); // Fetch breed and weight
+
+    const channel = supabase
+      .channel('forum_threads') // Unique channel name
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'forum_threads' }, async (payload) => {
+        // Fetch the newly inserted thread with profile details
+        const { data: newThread, error } = await supabase
+          .from('forum_threads')
+          .select(`
+            thread_id,
+            item_id,
+            message,
+            created_at,
+            created_by,
+            profiles:created_by (id, full_name)
+          `)
+          .eq('thread_id', payload.new.thread_id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching new thread with profile:', error.message);
+        } else {
+          setThreads((prevThreads) => [newThread, ...prevThreads]);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel); // Cleanup the subscription
+    };
+  }, [item.livestock_id]);
 
   const fetchThreads = async () => {
-    console.log('Fetching threads for itemId:', item.livestock_id);
-    const { data, error } = await supabase
-      .from('forum_threads')
-      .select(`
-        thread_id,
-        item_id,
-        title,
-        created_at,
-        profiles:created_by (id, full_name)
-      `)
-      .eq('item_id', item.livestock_id);
+    setLoading(true);
+    try {
+      const { data: threadsData, error } = await supabase
+        .from('forum_threads')
+        .select(`
+          thread_id,
+          item_id,
+          message,
+          created_at,
+          created_by,
+          profiles:created_by (id, full_name)
+        `)
+        .eq('item_id', item.livestock_id);
 
-    if (error) {
+      if (error) throw error;
+
+      setThreads(threadsData);
+    } catch (error) {
       console.error('Error fetching threads:', error.message);
-    } else {
-      console.log('Fetched threads:', data);
-      setThreads(data);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  const fetchLivestockDetails = async () => {
+    try {
+      const { data: livestockData, error } = await supabase
+        .from('livestock')
+        .select('breed, weight')
+        .eq('livestock_id', item.livestock_id)
+        .single();
+
+      if (error) throw error;
+
+      setLivestockDetails({
+        breed: livestockData.breed || 'Unknown',
+        weight: livestockData.weight || 'Unknown',
+      });
+    } catch (error) {
+      console.error('Error fetching livestock details:', error.message);
+    }
   };
 
   const sendMessage = async () => {
-    if (newMessage.trim()) {
+    if (!newMessage.trim()) {
+      Alert.alert('Error', 'Message cannot be empty.');
+      return;
+    }
+  
+    if (!userId) {
+      console.error('Error: userId is missing.');
+      Alert.alert('Error', 'Unable to send message. Please log in and try again.');
+      return;
+    }
+  
+    try {
       const { data, error } = await supabase
         .from('forum_threads')
-        .insert([{
-          item_id: item.livestock_id,
-          title: newMessage.trim(),
-          created_by: userId,
-        }])
+        .insert([
+          {
+            item_id: item.livestock_id,
+            message: newMessage.trim(),
+            created_by: userId, // Ensure userId is valid
+          },
+        ])
         .select('*');
-
-      if (error) {
-        console.error('Error sending message:', error.message);
-      } else {
-        setThreads((prev) => [data[0], ...prev]);
-        setNewMessage('');
+  
+      if (error) throw error;
+  
+      setNewMessage(''); // Clear the input field
+    } catch (error) {
+      console.error('Error sending message:', error.message);
+      return;
+    }
+  
+    // Prepare Notifications
+    const notificationData = [
+      {
+        livestock_id: item.livestock_id,
+        recipient_id: item.created_by || null, // Validate seller's ID
+        recipient_role: 'SELLER',
+        message: `A new reply was posted on your auction for the ${item.category || 'Unknown'}.`,
+        is_read: false,
+        notification_type: 'NEW_FORUM_QUESTION',
+      },
+      {
+        livestock_id: item.livestock_id,
+        recipient_id: userId, // Current user
+        recipient_role: 'BIDDER',
+        message: `You replied to the auction for the ${item.category || 'Unknown'}.`,
+        is_read: false,
+        notification_type: 'NEW_FORUM_ANSWER',
+      },
+    ];
+  
+    for (const notification of notificationData) {
+      if (!notification.recipient_id) {
+        console.error('Invalid recipient_id. Skipping notification:', notification);
+        continue; // Skip notifications with invalid recipient_id
       }
-    } else {
-      Alert.alert('Error', 'Message cannot be empty.');
+  
+      const { error: insertError } = await supabase.from('notifications').insert(notification);
+      if (insertError) {
+        console.error('Error creating notification:', insertError.message);
+      }
     }
   };
-
-  const renderThread = ({ item }) => (
-    <View style={styles.chatBubble}>
-      <Text style={styles.threadCreator}>
-        {item.profiles?.full_name || 'Unknown'}: 
-      </Text>
-      <Text style={styles.messageText}>{item.title}</Text>
-      <Text style={styles.threadTime}>
-        {new Date(item.created_at).toLocaleDateString()}
-      </Text>
-    </View>
-  );
+  
+  
+  const renderThread = ({ item: thread }) => {
+    const isSeller = thread.created_by === item.created_by;
+    return (
+      <View
+        style={[
+          styles.chatBubble,
+          isSeller && styles.sellerBubble,
+        ]}
+      >
+        <Text style={styles.threadCreator}>
+          {isSeller ? 'Seller' : thread.profiles?.full_name || 'Unknown'}:
+        </Text>
+        <Text style={styles.messageText}>{thread.message}</Text>
+        <Text style={styles.threadTime}>
+          {new Date(thread.created_at).toLocaleDateString()}
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Chat: {item.category}</Text>
+        <Text style={styles.headerSubtitle}>Breed: {livestockDetails.breed}</Text>
+        <Text style={styles.headerSubtitle}>Weight: {livestockDetails.weight} kg</Text>
       </View>
 
       {loading ? (
@@ -142,6 +252,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
   },
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#555',
+    marginTop: 5,
+  },
   messageList: {
     flex: 1,
     paddingHorizontal: 10,
@@ -159,6 +274,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 5,
     elevation: 3,
+  },
+  sellerBubble: {
+    backgroundColor: '#e0f7fa', // Light blue background for seller replies
+    borderColor: '#00796b', // Different border color
   },
   threadCreator: {
     fontWeight: 'bold',

@@ -144,7 +144,7 @@ const NotificationPage = ({ navigation }) => {
       await supabase
         .from('notifications')
         .update({ is_read: true })
-        .eq('notification_id', item.notification_id);
+        .eq('id', item.notification_id); // Ensure correct column is used
       setNotifications((prevNotifications) =>
         prevNotifications.map((notif) =>
           notif.notification_id === item.notification_id ? { ...notif, is_read: true } : notif
@@ -152,14 +152,27 @@ const NotificationPage = ({ navigation }) => {
       );
       setUnreadCount((prevCount) => prevCount - 1);
     }
-
+  
     // Navigate based on notification type
     if (item.notification_type === 'NEW_FORUM_QUESTION' || item.notification_type === 'NEW_FORUM_ANSWER') {
-      navigation.navigate('ForumPage', { itemId: item.livestock_id, userId: item.user_id });
+      navigation.navigate('ForumPage', {
+        item: {
+          livestock_id: item.livestock_id, // Pass the livestock ID
+          category: item.category || 'Unknown', // Include additional info for display
+          created_by: item.created_by, // Seller or thread creator
+        },
+        userId: item.user_id, // The current user ID
+      });
+    } else if (item.notification_type === 'AUCTION_END' && item.recipient_role === 'BIDDER') {
+      // Navigate to WinnerConfirmationPage if the user is the winning bidder
+      navigation.navigate('WinnerConfirmationPage', { livestockId: item.livestock_id });
     } else if (item.livestock_id) {
+      // Default navigation to LivestockAuctionDetailPage
       navigation.navigate('LivestockAuctionDetailPage', { itemId: item.livestock_id });
     }
   };
+  
+  
 
   // Render notification item in list
   const renderNotificationItem = ({ item }) => (
