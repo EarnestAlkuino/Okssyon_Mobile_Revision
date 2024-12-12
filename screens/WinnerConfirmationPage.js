@@ -56,7 +56,7 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
       Alert.alert('Error', 'Unable to proceed. Auction details are missing.');
       return;
     }
-
+  
     Alert.alert(
       'Confirm Sale',
       'Are you sure you want to confirm this sale?',
@@ -66,18 +66,35 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
           text: 'Confirm',
           onPress: async () => {
             try {
-              const { error } = await supabase
+              // Update the livestock status
+              const { error: livestockError } = await supabase
                 .from('livestock')
                 .update({ status: 'SOLD' })
                 .eq('livestock_id', livestockId);
-
-              if (error) {
+  
+              if (livestockError) {
                 Alert.alert('Error', 'Failed to update livestock status. Please try again.');
-                console.error('Error updating livestock status:', error);
-              } else {
-                Alert.alert('Success', 'The sale has been confirmed successfully.');
-                navigation.navigate('BidderTransactionPage', { auctionResult }); // Redirect to BidderTransactionPage
+                console.error('Error updating livestock status:', livestockError);
+                return;
               }
+  
+              // Update the auction result's confirmation status and timestamp
+              const { error: auctionError } = await supabase
+                .from('auction_results')
+                .update({
+                  confirmation_status: 'CONFIRMED',
+                  confirmation_at: new Date().toISOString(),
+                })
+                .eq('livestock_id', livestockId);
+  
+              if (auctionError) {
+                Alert.alert('Error', 'Failed to update confirmation status. Please try again.');
+                console.error('Error updating confirmation status:', auctionError);
+                return;
+              }
+  
+              Alert.alert('Success', 'The sale has been confirmed successfully.');
+              navigation.navigate('BidderTransactionPage', { auctionResult }); // Redirect to BidderTransactionPage
             } catch (error) {
               console.error('Unexpected error:', error);
               Alert.alert('Error', 'An unexpected error occurred. Please try again.');
@@ -87,6 +104,8 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
       ]
     );
   };
+  
+  
 
   if (loading) {
     return (
@@ -112,7 +131,7 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
       </TouchableOpacity>
 
       <View style={styles.header}>
-        <Text style={styles.congratulationsText}>🎉 Congratulations! 🎉</Text>
+        <Text style={styles.congratulationsText}> Congratulations! </Text>
         <Text style={styles.winningText}>
           You have won the bid for {auctionResult.livestock?.category || 'this item'}.
         </Text>
@@ -128,9 +147,6 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
         </Text>
         <Text style={styles.detailText}>
           <Text style={styles.label}>Location:</Text> {auctionResult.livestock?.location || 'N/A'}
-        </Text>
-        <Text style={styles.detailText}>
-          <Text style={styles.label}>Rating:</Text> ⭐⭐⭐⭐☆
         </Text>
       </View>
 

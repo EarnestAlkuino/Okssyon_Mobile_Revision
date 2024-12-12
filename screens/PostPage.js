@@ -4,10 +4,13 @@ import { Picker } from '@react-native-picker/picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { Ionicons } from '@expo/vector-icons';
 import Header from '../Components/Header';
-import { supabase } from '../supabase'; // Import Supabase client
-
+import { supabase } from '../supabase'; // Import Supabase cliento-network';
+import { Ionicons } from '@expo/vector-icons';
+ 
+ 
+ 
+ 
 const PostPage = ({ navigation }) => {
   const [category, setCategory] = useState('');
   const [gender, setGender] = useState('female');
@@ -23,9 +26,12 @@ const PostPage = ({ navigation }) => {
   const [weightInput, setWeightInput] = useState('');
   const [startingPriceInput, setStartingPriceInput] = useState('');
   const [location, setLocation] = useState('');
-  const [quantityInput, setQuantityInput] = useState(''); // Declare quantity state
+  const [quantityInput, setQuantityInput] = useState('');
   const [userId, setUserId] = useState(null);
-
+  const [loading, setLoading] = useState(false);
+  
+ 
+ 
   useEffect(() => {
     const fetchUserId = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -37,170 +43,149 @@ const PostPage = ({ navigation }) => {
     };
     fetchUserId();
   }, []);
-
+ 
   const pickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      alert("Permission to access media library is required!");
-      return;
-    }
-
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      setImage(result.uri);
+    try {
+      console.log("Requesting media library permissions...");
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      console.log("Permission result:", permissionResult);
+ 
+      if (!permissionResult.granted) {
+        alert("Permission to access media library is required!");
+        return;
+      }
+ 
+      console.log("Launching image library...");
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Fallback for compatibility
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+ 
+      console.log("Image picker result:", result);
+ 
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedImageUri = result.assets[0].uri; // Extract the URI of the first asset
+        setImage(selectedImageUri);
+        console.log("Selected image URI:", selectedImageUri);
+      } else {
+        console.log("Image picking was canceled or no assets returned.");
+      }
+    } catch (error) {
+      console.error("Error in pickImage:", error);
     }
   };
-
+ 
+ 
+ 
+ 
+ 
   const pickDocument = async (setDocument) => {
-    let result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
-    if (result.type === 'success') {
-      setDocument(result);
+    try {
+      console.log("Launching document picker...");
+      const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
+      console.log("Document picker result:", result);
+ 
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedDocument = result.assets[0]; // Extract the first document
+        setDocument(selectedDocument);
+        console.log("Selected document:", selectedDocument);
+      } else if (result.canceled) {
+        console.log("Document picking was canceled.");
+      } else {
+        console.log("No document selected.");
+      }
+    } catch (error) {
+      console.error("Error in pickDocument:", error);
     }
   };
-
+ 
+ 
+ 
+ 
   const handleAuctionStartConfirm = (date) => {
     setAuctionStart(date);
     setAuctionStartPickerVisible(false);
   };
-
+ 
   const handleAuctionEndConfirm = (date) => {
     setAuctionEnd(date);
     setAuctionEndPickerVisible(false);
   };
-
-  const uploadFileToSupabase = async (file, fileName, userId) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const projectId = 'ikvsahtemgarvhkvaftl'; // Replace with your Supabase project ID
-    const bucketName = 'livestock_documents';
-  
-    return new Promise((resolve, reject) => {
-      const upload = new Upload(file, {
-        endpoint: `https://${projectId}.supabase.co/storage/v1/upload/resumable`,
-        retryDelays: [0, 3000, 5000, 10000, 20000],
-        headers: {
-          authorization: `Bearer ${session?.access_token}`,
-          'x-upsert': 'true',
-        },
-        uploadDataDuringCreation: true,
-        removeFingerprintOnSuccess: true,
-        metadata: {
-          bucketName,
-          objectName: fileName,
-          contentType: file.type || 'application/octet-stream',
-        },
-        chunkSize: 6 * 1024 * 1024,
-        onError: function (error) {
-          console.error('Upload failed:', error);
-          reject(error);
-        },
-        onProgress: function (bytesUploaded, bytesTotal) {
-          const percentage = ((bytesUploaded / bytesTotal) * 100).toFixed(2);
-          console.log(`${percentage}% uploaded`);
-        },
-        onSuccess: async function () {
-          const publicUrl = `https://${projectId}.supabase.co/storage/v1/object/public/${bucketName}/${fileName}`;
-  
-          // Insert the livestock document URL into your table
-          const { error } = await supabase
-            .from('livestock') // Adjust this table name as needed
-            .insert({
-              owner_id: userId,
-              document_url: publicUrl, // Add relevant column for storing URL
-              uploaded_at: new Date().toISOString(),
-            });
-  
-          if (error) {
-            console.error('Database insertion error:', error);
-            Alert.alert('Error', 'Failed to update livestock document URL.');
-            reject(error);
-          } else {
-            Alert.alert('Success', 'Document uploaded successfully!');
-            resolve(publicUrl);
-          }
-        },
-      });
-  
-      upload.start();
-    });
+  const uploadFileToSupabase = async (fileUri, fileName) => {
+    try {
+      console.log('Preparing file for upload. File URI:', fileUri);
+     
+      // Read the file as a binary blob
+      const fileBlob = await fetch(fileUri).then((res) => res.blob());
+     
+      console.log('Blob created successfully:', fileBlob);
+     
+      // Upload to Supabase
+      const { data, error } = await supabase.storage
+        .from('livestock_documents') // Specify the bucket
+        .upload(fileName, fileBlob, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+     
+      if (error) throw error;
+      console.log('Upload successful:', data);
+ 
+      // Generate the public URL for the file
+      const { publicURL } = supabase.storage
+        .from('livestock_documents')
+        .getPublicUrl(fileName);
+     
+      console.log('Public URL:', publicURL);
+      return publicURL; // Return the public URL for use in the livestock table
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    }
   };
-  
+ 
   const handleSubmit = async () => {
     if (!userId) {
-      console.log('Error: User ID not found.');
       Alert.alert('Error', 'User ID not found. Please log in again.');
       return;
     }
-  
-    if (
-      !category ||
-      !gender ||
-      !breedInput ||
-      !ageInput ||
-      !weightInput ||
-      !startingPriceInput ||
-      !location ||
-      !quantityInput
-    ) {
-      console.log('Error: Missing required fields.');
+ 
+    if (!category || !gender || !breedInput || !ageInput || !weightInput || !startingPriceInput || !location || !quantityInput) {
       Alert.alert('Error', 'All fields are required. Please fill in all details.');
       return;
     }
-  
+ 
     const now = new Date();
-    console.log('Auction start:', auctionStart);
-    console.log('Auction end:', auctionEnd);
     if (auctionStart <= now) {
-      console.log('Error: Auction start time must be in the future.');
       Alert.alert('Error', 'Auction start time must be in the future.');
       return;
     }
     if (auctionEnd <= auctionStart) {
-      console.log('Error: Auction end time must be greater than auction start time.');
       Alert.alert('Error', 'Auction end time must be greater than auction start time.');
       return;
     }
-  
-    const isConnected = await Network.getNetworkStateAsync();
-    console.log('Network status:', isConnected);
-    if (!isConnected.isConnected) {
-      console.log('Error: No internet connection.');
-      Alert.alert('No Internet', 'Please check your internet connection and try again.');
-      return;
-    }
-  
+ 
     setLoading(true);
     try {
-      const uploads = {};
-      console.log('Starting file uploads...');
-  
+      let uploads = {};
+ 
       if (image) {
-        const imageFileName = `livestock-image-${Date.now()}.jpg`;
-        console.log(`Uploading image: ${imageFileName}`);
-        uploads.imagePath = await uploadFileToSupabase(image, imageFileName, userId);
-        console.log('Image uploaded to:', uploads.imagePath);
+        const imageUrl = await uploadFileToSupabase(image, `livestock-image-${Date.now()}.jpg`);
+        uploads.image_url = imageUrl;
       }
-  
+ 
       if (proofOfOwnership) {
-        const proofFileName = `proof-of-ownership-${Date.now()}.pdf`;
-        console.log(`Uploading proof of ownership: ${proofFileName}`);
-        uploads.proofPath = await uploadFileToSupabase(proofOfOwnership, proofFileName, userId);
-        console.log('Proof of ownership uploaded to:', uploads.proofPath);
+        const proofUrl = await uploadFileToSupabase(proofOfOwnership, `proof-of-ownership-${Date.now()}.pdf`);
+        uploads.proof_of_ownership_url = proofUrl;
       }
-  
+ 
       if (vetCertificate) {
-        const vetFileName = `vet-certificate-${Date.now()}.pdf`;
-        console.log(`Uploading vet certificate: ${vetFileName}`);
-        uploads.vetPath = await uploadFileToSupabase(vetCertificate, vetFileName, userId);
-        console.log('Vet certificate uploaded to:', uploads.vetPath);
+        const vetUrl = await uploadFileToSupabase(vetCertificate, `vet-certificate-${Date.now()}.pdf`);
+        uploads.vet_certificate_url = vetUrl;
       }
-  
-      console.log('File uploads completed. Preparing to insert data into Supabase.');
+ 
       const livestockData = {
         owner_id: userId,
         category,
@@ -216,15 +201,12 @@ const PostPage = ({ navigation }) => {
         status: 'PENDING',
         ...uploads,
       };
-  
-      console.log('Livestock data to insert:', livestockData);
-      const { error: dbError } = await supabase.from('livestock').insert(livestockData);
-      if (dbError) {
-        console.error('Database insertion error:', dbError);
-        throw dbError;
+ 
+      const { error } = await supabase.from('livestock').insert(livestockData);
+      if (error) {
+        throw error;
       }
-  
-      console.log('Data inserted successfully.');
+ 
       Alert.alert('Success', 'Your livestock has been submitted for review.');
       navigation.goBack();
     } catch (error) {
@@ -232,11 +214,13 @@ const PostPage = ({ navigation }) => {
       Alert.alert('Error', 'Submission failed. Please try again.');
     } finally {
       setLoading(false);
-      console.log('Submission process completed.');
     }
   };
-  
-
+ 
+ 
+ 
+ 
+ 
   return (
     <View style={styles.container}>
       <Header
@@ -245,7 +229,7 @@ const PostPage = ({ navigation }) => {
         showSettingsButton={false}
         onBackPress={() => navigation.goBack()}
       />
-
+ 
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <View style={styles.formContainer}>
           <Text style={styles.label}>Category</Text>
@@ -263,7 +247,7 @@ const PostPage = ({ navigation }) => {
               <Picker.Item label="GOAT" value="Goat" />
             </Picker>
           </View>
-
+ 
           <Text style={styles.label}>Gender</Text>
           <View style={styles.inputContainer}>
             <Picker
@@ -275,7 +259,7 @@ const PostPage = ({ navigation }) => {
               <Picker.Item label="Male" value="male" />
             </Picker>
           </View>
-
+ 
           <TouchableOpacity onPress={pickImage} style={styles.uploadButton}>
             {image ? (
               <Image source={{ uri: image }} style={styles.imagePreview} />
@@ -286,7 +270,7 @@ const PostPage = ({ navigation }) => {
               </View>
             )}
           </TouchableOpacity>
-
+ 
           <View style={styles.doubleInputContainer}>
             <TextInput
               placeholder="Breed"
@@ -302,7 +286,7 @@ const PostPage = ({ navigation }) => {
               onChangeText={setAgeInput}
             />
           </View>
-
+ 
           <TextInput
             placeholder="Weight (kg)"
             style={styles.input}
@@ -323,24 +307,24 @@ const PostPage = ({ navigation }) => {
             value={location}
             onChangeText={setLocation}
           />
-
+ 
           <TextInput
             placeholder="Quantity"
             style={styles.input}
             keyboardType="numeric"
-            value={quantityInput} 
+            value={quantityInput}
             onChangeText={setQuantityInput}  
           />
-
+ 
           <TouchableOpacity onPress={() => setAuctionStartPickerVisible(true)} style={styles.datePickerButton}>
             <Text style={styles.datePickerText}>Set Auction Start</Text>
           </TouchableOpacity>
-
+ 
           <TouchableOpacity onPress={() => setAuctionEndPickerVisible(true)} style={styles.datePickerButton}>
             <Text style={styles.datePickerText}>Set Auction End</Text>
-          </TouchableOpacity> 
-
-  
+          </TouchableOpacity>
+ 
+ 
           <View style={styles.rowContainer}>
             <TouchableOpacity onPress={() => pickDocument(setProofOfOwnership)} style={[styles.documentUploadButton, styles.flexButton]}>
               <View style={styles.iconTextContainer}>
@@ -348,7 +332,7 @@ const PostPage = ({ navigation }) => {
                 <Text style={styles.uploadText}>Upload Proof of Ownership</Text>
               </View>
             </TouchableOpacity>
-
+ 
             <TouchableOpacity onPress={() => pickDocument(setVetCertificate)} style={[styles.documentUploadButton, styles.flexButton]}>
               <View style={styles.iconTextContainer}>
                 <Ionicons name="document-text-outline" size={20} color="#888" />
@@ -356,7 +340,7 @@ const PostPage = ({ navigation }) => {
               </View>
             </TouchableOpacity>
           </View>
-
+ 
           <DateTimePickerModal
             isVisible={isAuctionStartPickerVisible}
             mode="datetime"
@@ -369,7 +353,7 @@ const PostPage = ({ navigation }) => {
             onConfirm={handleAuctionEndConfirm}
             onCancel={() => setAuctionEndPickerVisible(false)}
           />
-          
+         
           <TouchableOpacity onPress={handleSubmit} style={styles.submitButton}>
             <Text style={styles.submitButtonText}>Submit Listing</Text>
           </TouchableOpacity>
@@ -378,17 +362,17 @@ const PostPage = ({ navigation }) => {
     </View>
   );
 };
-
+ 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
+  container: {
+    flex: 1,
     backgroundColor: '#fff',
-    paddingBottom: 70, 
+    paddingBottom: 70,
   },
   scrollViewContent: {
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 30, 
+    paddingBottom: 30,
   },
   formContainer: {
     backgroundColor: '#fff',
@@ -462,7 +446,7 @@ const styles = StyleSheet.create({
     color: '#555',
   },
   datePickerButton: {
-    backgroundColor: '#335441', 
+    backgroundColor: '#335441',
     padding: 15,
     borderRadius: 5,
     alignItems: 'center',
@@ -473,7 +457,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   submitButton: {
-    backgroundColor: '#335441', 
+    backgroundColor: '#335441',
     padding: 15,
     borderRadius: 5,
     alignItems: 'center',
@@ -502,21 +486,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
+ 
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     marginTop: 20,
   },
   button: {
-    backgroundColor: '#335441', 
+    backgroundColor: '#335441',
     padding: 10,
     borderRadius: 5,
     width: '40%',
     alignItems: 'center',
   },
   disabledButton: {
-    backgroundColor: '#ccc', 
+    backgroundColor: '#ccc',
   },
   buttonText: {
     color: '#fff',
@@ -528,6 +512,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
-
-
+ 
+ 
 export default PostPage;
+ 

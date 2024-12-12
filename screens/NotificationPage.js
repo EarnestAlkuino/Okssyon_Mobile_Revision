@@ -144,7 +144,7 @@ const NotificationPage = ({ navigation }) => {
       await supabase
         .from('notifications')
         .update({ is_read: true })
-        .eq('id', item.notification_id); // Ensure correct column is used
+        .eq('notification_id', item.notification_id); // Ensure correct column name
       setNotifications((prevNotifications) =>
         prevNotifications.map((notif) =>
           notif.notification_id === item.notification_id ? { ...notif, is_read: true } : notif
@@ -153,24 +153,52 @@ const NotificationPage = ({ navigation }) => {
       setUnreadCount((prevCount) => prevCount - 1);
     }
   
-    // Navigate based on notification type
+    // Check the type of notification and navigate accordingly
     if (item.notification_type === 'NEW_FORUM_QUESTION' || item.notification_type === 'NEW_FORUM_ANSWER') {
+      // Fetch the `owner_id` if the recipient is a seller
+      let ownerId = item.user_id; // Default to user_id passed in the notification
+  
+      if (item.recipient_role === 'SELLER') {
+        try {
+          const { data: livestockData, error } = await supabase
+            .from('livestock')
+            .select('owner_id')
+            .eq('livestock_id', item.livestock_id)
+            .single();
+  
+          if (error) {
+            console.error('Error fetching owner_id:', error.message);
+          } else {
+            ownerId = livestockData.owner_id; // Use the owner_id for the seller
+          }
+        } catch (fetchError) {
+          console.error('Error fetching livestock data:', fetchError.message);
+        }
+      }
+  
+      // Navigate to the ForumPage with the correct userId
       navigation.navigate('ForumPage', {
         item: {
           livestock_id: item.livestock_id, // Pass the livestock ID
           category: item.category || 'Unknown', // Include additional info for display
-          created_by: item.created_by, // Seller or thread creator
+          created_by: item.created_by, // Thread creator
         },
-        userId: item.user_id, // The current user ID
+        userId: ownerId, // Use owner_id for the seller or item.user_id for others
       });
-    } else if (item.notification_type === 'AUCTION_END' && item.recipient_role === 'BIDDER') {
-      // Navigate to WinnerConfirmationPage if the user is the winning bidder
-      navigation.navigate('WinnerConfirmationPage', { livestockId: item.livestock_id });
+    } else if (item.notification_type === 'AUCTION_END') {
+      if (item.recipient_role === 'BIDDER') {
+        // Navigate to WinnerConfirmationPage if the user is the winning bidder
+        navigation.navigate('WinnerConfirmationPage', { livestockId: item.livestock_id });
+      } else if (item.recipient_role === 'SELLER') {
+        // Navigate to SellerTransactionPage if the user is the seller
+        navigation.navigate('SellerTransactionPage', { livestockId: item.livestock_id });
+      }
     } else if (item.livestock_id) {
       // Default navigation to LivestockAuctionDetailPage
       navigation.navigate('LivestockAuctionDetailPage', { itemId: item.livestock_id });
     }
   };
+  
   
   
 

@@ -181,7 +181,7 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
   
       console.log('Livestock marked as SOLD');
   
-      // Send notifications
+      // Prepare notifications
       const notifications = [
         {
           recipient_id: highestBid.bidder_id,
@@ -202,6 +202,21 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
       ];
   
       for (const notification of notifications) {
+        // Check if a similar notification already exists
+        const { data: existingNotification, error: checkError } = await supabase
+          .from('notifications')
+          .select('id')
+          .eq('livestock_id', notification.livestock_id)
+          .eq('recipient_id', notification.recipient_id)
+          .eq('notification_type', notification.notification_type)
+          .single();
+  
+        if (!checkError && existingNotification) {
+          console.log('Notification already exists, skipping:', notification);
+          continue;
+        }
+  
+        // Insert notification if it doesn't exist
         const { error: insertError } = await supabase.from('notifications').insert(notification);
         if (insertError) {
           console.error('Error inserting notification:', insertError.message);
@@ -215,52 +230,50 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
   };
   
   
+  
 
-  const isCreator = item && userId === item.owner_id;
+  const isCreator = item && userId === item.owner_id; // Check if the user is the auction creator
 
   const handleAction = async (actionType) => {
-    // Check if the user is the creator of the auction
-    if (isCreator) {
-      if (actionType === 'Delete') {
-        Alert.alert(
-          "Confirm Deletion",
-          "Are you sure you want to delete this auction?",
-          [
-            { text: "Cancel", style: "cancel" },
-            { text: "Delete", style: "destructive", onPress: deleteAuction }, // Ensure `deleteAuction` is defined
-          ]
-        );
-      } else if (actionType === 'Edit') {
-        navigation.navigate('EditAuctionPage', { itemId: item.id }); // Pass the correct auction ID
-      }
-    } else if (timeRemaining !== "Auction Ended") {
-      // Check if the auction is still active
-      if (actionType === 'Bid') {
-        navigation.navigate('BidPage', {
-          item,
-          userId,
-          ownerId: item.owner_id, // Pass the owner ID for the Bid page
-        });
-      } else if (actionType === 'Ask') {
-        navigation.navigate('ForumPage', {
-          item: {
-            livestock_id: livestock.id,
-            category: livestock.category,
-            created_by: livestock.created_by, // Seller's ID
-          },
-          userId: currentUserId, // Ensure this is not undefined
-        });
-        
-      }
-    } else {
-      // Notify the user if the auction has ended
+    console.log("Action Type: ", actionType);
+    console.log("Is Creator: ", isCreator);
+    console.log("Time Remaining: ", timeRemaining);
+  
+    if (actionType === "Ask") {
+      console.log("Navigating to ForumPage...");
+      navigation.navigate("ForumPage", {
+        item: {
+          livestock_id: item.livestock_id,
+          category: item.category || "Unknown",
+          created_by: item.created_by,
+        },
+        userId: userId,
+      });
+    } else if (actionType === "Delete") {
       Alert.alert(
-        "Auction Ended",
-        "This auction has ended. Bidding and questions are no longer allowed."
+        "Confirm Deletion",
+        "Are you sure you want to delete this auction?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Delete", style: "destructive", onPress: deleteAuction },
+        ]
       );
+    } else if (actionType === "Edit") {
+      console.log("Navigating to EditAuctionPage...");
+      navigation.navigate("EditAuctionPage", { itemId: item.id });
+    } else if (actionType === "Bid") {
+      console.log("Navigating to BidPage...");
+      navigation.navigate("BidPage", {
+        item,
+        userId,
+        ownerId: item.owner_id,
+      });
+    } else {
+      console.log("Unhandled action type:", actionType);
     }
   };
   
+
 
   if (loading) {
     return (
@@ -320,12 +333,29 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
         <Text style={styles.timeRemaining}>Time Remaining: {timeRemaining || 'Loading...'}</Text>
 
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.button} onPress={() => handleAction(isCreator ? "Delete" : "Ask")}>
-            <Text style={styles.buttonText}>{isCreator ? "Delete" : "Ask"}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, timeRemaining === "Auction Ended" ? styles.disabledButton : null]} onPress={() => handleAction(isCreator ? "Edit" : "Bid")} disabled={timeRemaining === "Auction Ended"}>
-            <Text style={styles.buttonText}>{isCreator ? "Edit" : "Bid"}</Text>
-          </TouchableOpacity>
+  {/* Ask / Delete Button */}
+  <TouchableOpacity
+  style={styles.button}
+  onPress={() => {
+    console.log("Button Pressed: ", isCreator ? "Delete" : "Ask");
+    handleAction(isCreator ? "Delete" : "Ask");
+  }}
+>
+  <Text style={styles.buttonText}>{isCreator ? "Delete" : "Ask"}</Text>
+</TouchableOpacity>
+
+<TouchableOpacity
+  style={[styles.button, timeRemaining === "Auction Ended" ? styles.disabledButton : null]}
+  onPress={() => {
+    console.log("Button Pressed: ", isCreator ? "Edit" : "Bid");
+    handleAction(isCreator ? "Edit" : "Bid");
+  }}
+  disabled={timeRemaining === "Auction Ended"}
+>
+  <Text style={styles.buttonText}>{isCreator ? "Edit" : "Bid"}</Text>
+</TouchableOpacity>
+
+
         </View>
       </View>
     </View>

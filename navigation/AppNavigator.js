@@ -27,6 +27,7 @@ import ForumPage from '../screens/ForumPage';
 import WinnerConfirmationPage from '../screens/WinnerConfirmationPage';
 import PaymentWebView from '../screens/PaymentWebView';
 import BidderTransactionPage from '../screens/BidderTransactionPage';
+import SellerTransactionPage from '../screens/SellerTransactionPage';
 
 const Stack = createStackNavigator();
 
@@ -158,6 +159,11 @@ const AppNavigator = () => {
            <Stack.Screen
         name='BidderTransactionPage'
         component={BidderTransactionPage}
+        options={{headerShown: false}}
+        />
+              <Stack.Screen
+        name='SellerTransactionPage'
+        component={SellerTransactionPage}
         options={{headerShown: false}}
         />
         <Stack.Screen

@@ -9,7 +9,11 @@ import {
   ActivityIndicator,
   SafeAreaView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient'; // Ensure expo-linear-gradient is installed
+import { Ionicons } from '@expo/vector-icons'; // Ensure expo/vector-icons is installed
 import { supabase } from '../supabase';
 
 const ForumPage = ({ route, navigation }) => {
@@ -36,16 +40,16 @@ const ForumPage = ({ route, navigation }) => {
   const [livestockDetails, setLivestockDetails] = useState({
     breed: 'Unknown',
     weight: 'Unknown',
+    category: 'Unknown',
   });
 
   useEffect(() => {
     fetchThreads();
-    fetchLivestockDetails(); // Fetch breed and weight
+    fetchLivestockDetails();
 
     const channel = supabase
-      .channel('forum_threads') // Unique channel name
+      .channel('forum_threads')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'forum_threads' }, async (payload) => {
-        // Fetch the newly inserted thread with profile details
         const { data: newThread, error } = await supabase
           .from('forum_threads')
           .select(`
@@ -60,7 +64,7 @@ const ForumPage = ({ route, navigation }) => {
           .single();
 
         if (error) {
-          console.error('Error fetching new thread with profile:', error.message);
+          console.error('Error fetching new thread:', error.message);
         } else {
           setThreads((prevThreads) => [newThread, ...prevThreads]);
         }
@@ -68,7 +72,7 @@ const ForumPage = ({ route, navigation }) => {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel); // Cleanup the subscription
+      supabase.removeChannel(channel);
     };
   }, [item.livestock_id]);
 
@@ -101,7 +105,7 @@ const ForumPage = ({ route, navigation }) => {
     try {
       const { data: livestockData, error } = await supabase
         .from('livestock')
-        .select('breed, weight')
+        .select('breed, weight, category, owner_id')
         .eq('livestock_id', item.livestock_id)
         .single();
 
@@ -110,6 +114,8 @@ const ForumPage = ({ route, navigation }) => {
       setLivestockDetails({
         breed: livestockData.breed || 'Unknown',
         weight: livestockData.weight || 'Unknown',
+        category: livestockData.category || 'Unknown',
+        owner_id: livestockData.owner_id,
       });
     } catch (error) {
       console.error('Error fetching livestock details:', error.message);
@@ -121,117 +127,95 @@ const ForumPage = ({ route, navigation }) => {
       Alert.alert('Error', 'Message cannot be empty.');
       return;
     }
-  
+
     if (!userId) {
       console.error('Error: userId is missing.');
       Alert.alert('Error', 'Unable to send message. Please log in and try again.');
       return;
     }
-  
+
     try {
-      const { data, error } = await supabase
+      const { data: newThread, error } = await supabase
         .from('forum_threads')
         .insert([
           {
             item_id: item.livestock_id,
             message: newMessage.trim(),
-            created_by: userId, // Ensure userId is valid
+            created_by: userId,
           },
         ])
         .select('*');
-  
+
       if (error) throw error;
-  
-      setNewMessage(''); // Clear the input field
+
+      setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error.message);
-      return;
-    }
-  
-    // Prepare Notifications
-    const notificationData = [
-      {
-        livestock_id: item.livestock_id,
-        recipient_id: item.created_by || null, // Validate seller's ID
-        recipient_role: 'SELLER',
-        message: `A new reply was posted on your auction for the ${item.category || 'Unknown'}.`,
-        is_read: false,
-        notification_type: 'NEW_FORUM_QUESTION',
-      },
-      {
-        livestock_id: item.livestock_id,
-        recipient_id: userId, // Current user
-        recipient_role: 'BIDDER',
-        message: `You replied to the auction for the ${item.category || 'Unknown'}.`,
-        is_read: false,
-        notification_type: 'NEW_FORUM_ANSWER',
-      },
-    ];
-  
-    for (const notification of notificationData) {
-      if (!notification.recipient_id) {
-        console.error('Invalid recipient_id. Skipping notification:', notification);
-        continue; // Skip notifications with invalid recipient_id
-      }
-  
-      const { error: insertError } = await supabase.from('notifications').insert(notification);
-      if (insertError) {
-        console.error('Error creating notification:', insertError.message);
-      }
     }
   };
-  
-  
+
   const renderThread = ({ item: thread }) => {
-    const isSeller = thread.created_by === item.created_by;
+    const isSeller = thread.created_by === livestockDetails.owner_id;
+    const role = isSeller ? 'Seller' : 'Bidder';
     return (
-      <View
-        style={[
-          styles.chatBubble,
-          isSeller && styles.sellerBubble,
-        ]}
-      >
-        <Text style={styles.threadCreator}>
-          {isSeller ? 'Seller' : thread.profiles?.full_name || 'Unknown'}:
-        </Text>
-        <Text style={styles.messageText}>{thread.message}</Text>
-        <Text style={styles.threadTime}>
-          {new Date(thread.created_at).toLocaleDateString()}
-        </Text>
+      <View style={[styles.threadContainer, isSeller && styles.sellerHighlight]}>
+        <Text style={[styles.threadRole, isSeller && styles.sellerRole]}>{role}: {thread.profiles?.full_name || 'Unknown'}</Text>
+        <Text style={styles.threadMessage}>{thread.message}</Text>
+        <Text style={styles.threadTimestamp}>{new Date(thread.created_at).toLocaleString()}</Text>
       </View>
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Chat: {item.category}</Text>
-        <Text style={styles.headerSubtitle}>Breed: {livestockDetails.breed}</Text>
-        <Text style={styles.headerSubtitle}>Weight: {livestockDetails.weight} kg</Text>
+      {/* Gradient Header */}
+      <LinearGradient
+        colors={['#257446', '#234D35']}
+        style={styles.header}
+      >
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{livestockDetails.category} Forum</Text>
+      </LinearGradient>
+
+      {/* Livestock Details */}
+      <View style={styles.detailsContainer}>
+        <Text style={styles.detailsText}>Breed: {livestockDetails.breed} | Weight: {livestockDetails.weight} kg</Text>
       </View>
 
+      {/* Threads */}
       {loading ? (
-        <ActivityIndicator size="large" color="#00796b" />
+        <ActivityIndicator size="large" color="#257446" style={styles.loader} />
       ) : (
         <FlatList
           data={threads}
           renderItem={renderThread}
           keyExtractor={(thread) => thread.thread_id.toString()}
-          style={styles.messageList}
+          style={styles.threadsList}
         />
       )}
 
-      <View style={styles.inputContainer}>
+      {/* Input Section */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.inputContainer}
+      >
         <TextInput
           style={styles.input}
-          placeholder="Type a message"
+          placeholder="Write your reply..."
           value={newMessage}
           onChangeText={setNewMessage}
+          multiline
         />
-        <TouchableOpacity style={styles.button} onPress={sendMessage}>
-          <Text style={styles.buttonText}>Send</Text>
+        <TouchableOpacity
+          style={[styles.sendButton, !newMessage.trim() && styles.disabledSendButton]}
+          onPress={sendMessage}
+          disabled={!newMessage.trim()}
+        >
+          <Text style={styles.sendButtonText}>Send</Text>
         </TouchableOpacity>
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -242,102 +226,100 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
   },
   header: {
-    padding: 15,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  backButton: {
+    marginRight: 10,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    color: '#fff',
+    left: 80,
   },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#555',
-    marginTop: 5,
-  },
-  messageList: {
-    flex: 1,
-    paddingHorizontal: 10,
-    marginTop: 10,
-  },
-  chatBubble: {
+  detailsContainer: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    alignItems: 'center',
+  },
+  detailsText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#444',
+  },
+  threadsList: {
     padding: 10,
-    marginBottom: 10,
+  },
+  threadContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderColor: '#ddd',
+    borderWidth: 1,
     shadowColor: '#000',
     shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 5,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 4,
+    elevation: 2,
   },
-  sellerBubble: {
-    backgroundColor: '#e0f7fa', // Light blue background for seller replies
-    borderColor: '#00796b', // Different border color
+  sellerHighlight: {
+    borderColor: '#257446',
+    backgroundColor: '#e7f9ee',
   },
-  threadCreator: {
+  threadRole: {
     fontWeight: 'bold',
-    color: '#00796b',
-    marginBottom: 5,
+    marginBottom: 4,
+    color: '#555',
   },
-  messageText: {
-    fontSize: 16,
+  sellerRole: {
+    color: '#257446',
+  },
+  threadMessage: {
+    fontSize: 15,
+    marginBottom: 8,
     color: '#333',
   },
-  threadTime: {
+  threadTimestamp: {
     fontSize: 12,
     color: '#888',
     textAlign: 'right',
   },
   inputContainer: {
     flexDirection: 'row',
-    padding: 10,
+    alignItems: 'center',
+    padding: 12,
     backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#ddd',
+    borderTopColor: '#eee',
   },
   input: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#335441',
+    backgroundColor: '#f1f1f1',
     borderRadius: 20,
-    padding: 10,
+    padding: 12,
+    fontSize: 15,
     marginRight: 10,
   },
-  button: {
-    backgroundColor: '#335441',
-    padding: 10,
+  sendButton: {
+    backgroundColor: '#257446',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  buttonText: {
+  disabledSendButton: {
+    backgroundColor: '#ccc',
+  },
+  sendButtonText: {
     color: '#fff',
-    fontSize: 16,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f9f9f9',
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#ff0000',
-    marginBottom: 20,
-  },
-  errorButton: {
-    padding: 10,
-    backgroundColor: '#00796b',
-    borderRadius: 5,
-  },
-  errorButtonText: {
-    color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: 'bold',
   },
 });
 
