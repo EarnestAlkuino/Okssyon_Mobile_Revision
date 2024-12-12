@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet, Image, ActivityIndicator, Alert } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-import { supabase } from '../supabase';
+import { supabase } from '../supabase';  // Ensure this is properly configured
 import Header from '../Components/Header';
 
 const AuctionPage = ({ navigation, route }) => {
@@ -13,44 +13,38 @@ const AuctionPage = ({ navigation, route }) => {
   const fetchLivestockData = async () => {
     console.log("Fetching data for category:", category);
     setLoading(true);
-  
+
     try {
       const { data, error } = await supabase
         .from('livestock')
         .select('*')
         .eq('category', category)
         .eq('status', 'AVAILABLE'); // Only fetch livestock with 'AVAILABLE' status
-  
+
       if (error) {
         console.error("Error fetching data:", error.message);
         Alert.alert("Error", `Failed to fetch livestock data: ${error.message}`);
       } else {
-        // Filter out livestock where auction_end has passed
-        const currentTime = new Date().toISOString();
-        const activeLivestock = data.filter(
-          (item) => new Date(item.auction_end).getTime() > new Date(currentTime).getTime()
-        );
-  
-        console.log("Filtered active livestock data:", activeLivestock);
-        setLivestockData(activeLivestock);
+        console.log("Fetched livestock data:", data);
+        setLivestockData(data); // Directly set the data without filtering
       }
     } catch (err) {
       console.error("Unexpected error:", err);
+      Alert.alert("Error", `An unexpected error occurred: ${err.message}`);
     }
-  
+
     setLoading(false);
   };
-  
 
   useEffect(() => {
     if (isFocused && category) {
       fetchLivestockData();
     }
-  }, [isFocused, category, userId]);
+  }, [isFocused, category]);  // Removed 'userId' from dependencies since it's not necessary here
 
   const handleLivestockSelect = useCallback((item) => {
     navigation.navigate('LivestockAuctionDetailPage', { itemId: item.livestock_id, userId });
-  });
+  }, [navigation, userId]);
 
   const renderItem = useCallback(({ item }) => (
     <TouchableOpacity style={styles.card} onPress={() => handleLivestockSelect(item)}>

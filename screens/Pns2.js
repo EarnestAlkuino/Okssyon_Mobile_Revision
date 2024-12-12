@@ -18,16 +18,16 @@ const Pns2 = () => {
 
         // Organize data by animal for easier mapping in the component
         const organizedData = prices.reduce((acc, item) => {
-          const { livestock, weight_range, label, price } = item; // Use 'price' instead of 'price_value'
+          const { livestock, weight_range, label, price_min, price_max } = item; // Use price_min and price_max
           const existinglivestock = acc.find((a) => a.livestock === livestock);
 
           if (existinglivestock) {
-            existinglivestock.prices.push({ label, value: price }); // Use 'price' here
+            existinglivestock.prices.push({ label, price_min, price_max }); // Store price_min and price_max
           } else {
             acc.push({
               livestock,
               weightRange: weight_range,
-              prices: [{ label, value: price }], // Use 'price' here
+              prices: [{ label, price_min, price_max }], // Store price_min and price_max
             });
           }
           return acc;
@@ -54,7 +54,11 @@ const Pns2 = () => {
             {item.prices.map((price, priceIndex) => (
               <View key={priceIndex} style={styles.priceRow}>
                 <Text style={styles.priceLabel}>{price.label}</Text>
-                <Text style={styles.priceValue}>{price.value}</Text>
+                <View style={styles.priceValueContainer}>
+                  <Text style={styles.priceValue}>{price.price_min}</Text>
+                  <Text style={styles.priceSeparator}> - </Text>
+                  <Text style={styles.priceValue}>{price.price_max}</Text>
+                </View>
               </View>
             ))}
           </View>
@@ -71,8 +75,8 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#fff',
-    padding: 15,
-    marginBottom: 10,
+    padding: 20,
+    marginBottom: 15,
     borderRadius: 8,
     shadowColor: '#000',
     shadowOpacity: 0.1,
@@ -82,31 +86,43 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 15,
   },
   livestockText: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#333',
   },
   weightRangeText: {
     fontSize: 16,
     color: '#777',
   },
   priceBox: {
-    marginTop: 10,
+    marginTop: 15,
   },
   priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 5,
+    marginBottom: 10,
   },
   priceLabel: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#555',
+    fontWeight: '600',
+  },
+  priceValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   priceValue: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
+    color: '#333',
+  },
+  priceSeparator: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
   },
 });
 
