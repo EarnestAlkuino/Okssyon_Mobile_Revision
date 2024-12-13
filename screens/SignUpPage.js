@@ -1,8 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Image, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  Image,
+  StyleSheet,
+  Alert,
+  TouchableOpacity,
+} from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import Button from '../Components/Button'; 
-import { supabase } from '../supabase'; 
+import Button from '../Components/Button';
+import { supabase } from '../supabase';
 
 const SignUpPage = ({ navigation }) => {
   const [fullName, setFullName] = useState('');
@@ -15,43 +23,44 @@ const SignUpPage = ({ navigation }) => {
 
   async function signUpWithEmail() {
     if (password !== confirmPassword) {
-      Alert.alert("Passwords do not match");
+      Alert.alert('Passwords do not match');
       return;
     }
-
+  
     if (!fullName || !email || !password) {
       Alert.alert('Please fill in all fields.');
       return;
     }
-
+  
     setLoading(true);
-
-    const { error, data } = await supabase.auth.signUp({
-      email: email,
-      password: password,
-    });
-
-    if (error) {
-      Alert.alert('Error signing up:', error.message);
+  
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+  
+      if (error) {
+        if (error.message.includes('already registered')) {
+          Alert.alert('Email Already Used', 'This email is already registered. Please log in or use a different email.');
+        } else {
+          Alert.alert('Error Signing Up', error.message);
+        }
+        setLoading(false);
+        return;
+      }
+  
+      // Navigate to the OTP verification page
+      Alert.alert('Success', 'Please check your email for the OTP.');
+      navigation.navigate('OtpPage', { email, fullName });
+    } catch (err) {
+      Alert.alert('Unexpected Error', 'An unexpected error occurred.');
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const user = data.user;
-
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert([{ id: user.id, full_name: fullName, email: email }]);
-
-    if (profileError) {
-      Alert.alert('Error inserting profile:', profileError.message);
-    } else {
-      Alert.alert('Please check your inbox for email verification!');
-      navigation.navigate('LoginPage');
-    }
-
-    setLoading(false);
   }
+  
+  
 
   return (
     <View style={styles.container}>
@@ -146,6 +155,8 @@ const SignUpPage = ({ navigation }) => {
   );
 };
 
+
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -231,5 +242,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
-
+ 
 export default SignUpPage;
+

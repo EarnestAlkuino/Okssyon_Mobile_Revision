@@ -234,6 +234,27 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
 
   const isCreator = item && userId === item.owner_id; // Check if the user is the auction creator
 
+  const deleteAuction = async () => {
+    try {
+      // Confirm deletion in the database
+      const { error } = await supabase
+        .from('livestock')
+        .delete()
+        .eq('livestock_id', item.livestock_id);
+  
+      if (error) {
+        console.error("Error deleting auction:", error.message);
+        Alert.alert("Error", "Failed to delete the auction. Please try again.");
+      } else {
+        Alert.alert("Success", "Auction deleted successfully!");
+        navigation.goBack(); // Navigate back after successful deletion
+      }
+    } catch (err) {
+      console.error("Error during deleteAuction:", err);
+      Alert.alert("Error", "An unexpected error occurred.");
+    }
+  };
+  
   const handleAction = async (actionType) => {
     console.log("Action Type: ", actionType);
     console.log("Is Creator: ", isCreator);
@@ -250,6 +271,11 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
         userId: userId,
       });
     } else if (actionType === "Delete") {
+      if (!isCreator) {
+        Alert.alert("Unauthorized", "You are not allowed to delete this auction.");
+        return;
+      }
+  
       Alert.alert(
         "Confirm Deletion",
         "Are you sure you want to delete this auction?",
@@ -259,8 +285,13 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
         ]
       );
     } else if (actionType === "Edit") {
+      if (!isCreator) {
+        Alert.alert("Unauthorized", "You are not allowed to edit this auction.");
+        return;
+      }
+  
       console.log("Navigating to EditAuctionPage...");
-      navigation.navigate("EditAuctionPage", { itemId: item.id });
+      navigation.navigate("EditAuctionPage", { itemId: item.livestock_id });
     } else if (actionType === "Bid") {
       console.log("Navigating to BidPage...");
       navigation.navigate("BidPage", {
@@ -272,6 +303,7 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
       console.log("Unhandled action type:", actionType);
     }
   };
+  
   
 
 
@@ -332,33 +364,50 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
 
         <Text style={styles.timeRemaining}>Time Remaining: {timeRemaining || 'Loading...'}</Text>
 
-        <View style={styles.buttonContainer}>
+<View style={styles.buttonContainer}>
   {/* Ask / Delete Button */}
   <TouchableOpacity
-  style={styles.button}
-  onPress={() => {
-    console.log("Button Pressed: ", isCreator ? "Delete" : "Ask");
-    handleAction(isCreator ? "Delete" : "Ask");
-  }}
->
-  <Text style={styles.buttonText}>{isCreator ? "Delete" : "Ask"}</Text>
-</TouchableOpacity>
+    style={[
+      styles.button,
+      (!isCreator && timeRemaining === 'AUCTION_ENDED') ? styles.disabledButton : null,
+    ]}
+    onPress={() => {
+      if (timeRemaining === 'AUCTION_ENDED') {
+        Alert.alert(
+          'Auction Ended',
+          isCreator ? 'You cannot delete an ended auction.' : 'You cannot ask questions on an ended auction.'
+        );
+        return;
+      }
+      console.log('Button Pressed: ', isCreator ? 'Delete' : 'Ask');
+      handleAction(isCreator ? 'Delete' : 'Ask');
+    }}
+    disabled={timeRemaining === 'AUCTION_ENDED'}
+  >
+    <Text style={styles.buttonText}>{isCreator ? 'Delete' : 'Ask'}</Text>
+  </TouchableOpacity>
 
-<TouchableOpacity
-  style={[styles.button, timeRemaining === "Auction Ended" ? styles.disabledButton : null]}
-  onPress={() => {
-    console.log("Button Pressed: ", isCreator ? "Edit" : "Bid");
-    handleAction(isCreator ? "Edit" : "Bid");
-  }}
-  disabled={timeRemaining === "Auction Ended"}
->
-  <Text style={styles.buttonText}>{isCreator ? "Edit" : "Bid"}</Text>
-</TouchableOpacity>
-
-
-        </View>
+  {/* Edit / Bid Button */}
+  <TouchableOpacity
+    style={[
+      styles.button,
+      (timeRemaining === 'AUCTION_ENDED') ? styles.disabledButton : null,
+    ]}
+    onPress={() => {
+      if (timeRemaining === 'AUCTION_ENDED') {
+        Alert.alert('Auction Ended', 'You cannot edit or bid on an ended auction.');
+        return;
+      }
+      console.log('Button Pressed: ', isCreator ? 'Edit' : 'Bid');
+      handleAction(isCreator ? 'Edit' : 'Bid');
+    }}
+    disabled={timeRemaining === 'AUCTION_ENDED'}
+  >
+    <Text style={styles.buttonText}>{isCreator ? 'Edit' : 'Bid'}</Text>
+  </TouchableOpacity>
+</View>
+</View>
       </View>
-    </View>
   );
 };
 
@@ -389,3 +438,5 @@ const styles = StyleSheet.create({
 });
 
 export default LivestockAuctionDetailPage;
+
+

@@ -28,6 +28,7 @@ import WinnerConfirmationPage from '../screens/WinnerConfirmationPage';
 import PaymentWebView from '../screens/PaymentWebView';
 import BidderTransactionPage from '../screens/BidderTransactionPage';
 import SellerTransactionPage from '../screens/SellerTransactionPage';
+import OtpPage from '../screens/OtpPage';
 
 const Stack = createStackNavigator();
 
@@ -159,6 +160,11 @@ const AppNavigator = () => {
            <Stack.Screen
         name='BidderTransactionPage'
         component={BidderTransactionPage}
+        options={{headerShown: false}}
+        />
+         <Stack.Screen
+        name='OtpPage'
+        component={OtpPage}
         options={{headerShown: false}}
         />
               <Stack.Screen
