@@ -13,39 +13,42 @@ import {
   Platform,
   Image,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import AuctionDetailsHeader from '../Components/LivestockAuctionDetailPage/AuctionDetailsHeader';
 import { supabase } from '../supabase';
 
 const ForumPage = ({ route, navigation }) => {
-  const { item, userId } = route.params || {};
-  const placeholderImage = 'https://via.placeholder.com/50'; // Fallback image
+  const { item, userId: userIdFromParams } = route.params || {};
+  const placeholderImage = 'https://via.placeholder.com/50';
 
-  if (!item) {
-    console.error('Error: Item is undefined.');
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Error: Item data is missing.</Text>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.errorButton}
-        >
-          <Text style={styles.errorButtonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
+  const [userId, setUserId] = useState(userIdFromParams);
   const [threads, setThreads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
-  const [replyToThreadId, setReplyToThreadId] = useState(null); // Track the thread being replied to
-  const [expandedThreads, setExpandedThreads] = useState({}); // Track expanded/collapsed threads
+  const [replyToThreadId, setReplyToThreadId] = useState(null);
+  const [expandedThreads, setExpandedThreads] = useState({});
   const [livestockDetails, setLivestockDetails] = useState({
     breed: 'Unknown',
     weight: 'Unknown',
     category: 'Unknown',
   });
+
+  useEffect(() => {
+    // Fetch userId if not provided
+    const fetchUserId = async () => {
+      if (!userId) {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error || !user) {
+          console.error('Error fetching user from Supabase:', error?.message || 'No user found');
+          Alert.alert('Error', 'Failed to retrieve user information. Please log in again.');
+          navigation.navigate('LoginPage');
+        } else {
+          setUserId(user.id);
+        }
+      }
+    };
+
+    fetchUserId();
+  }, [userId]);
 
   useEffect(() => {
     fetchThreads();
@@ -101,120 +104,39 @@ const ForumPage = ({ route, navigation }) => {
   };
 
   const sendMessage = async () => {
+    console.log('Sending message with userId:', userId);
+
+    if (!userId) {
+      Alert.alert('Error', 'You must be logged in to post a message.');
+      return;
+    }
+
     if (!newMessage.trim()) {
       Alert.alert('Error', 'Message cannot be empty.');
       return;
     }
-  
-    if (!userId) {
-      Alert.alert('Error', 'Unable to send message. Please log in and try again.');
-      return;
-    }
-  
+
     try {
-      // Insert the new thread/reply
-      const { error: threadError } = await supabase
+      const { error } = await supabase
         .from('forum_threads')
         .insert([
           {
             item_id: item.livestock_id,
             message: newMessage.trim(),
             created_by: userId,
-            parent_id: replyToThreadId, // Associate reply with a thread
+            parent_id: replyToThreadId || null,
           },
-        ])
-        .select('*')
-        .single();
-  
-      if (threadError) throw threadError;
-  
+        ]);
+
+      if (error) throw error;
+
       setNewMessage('');
       setReplyToThreadId(null);
-      fetchThreads(); // Refresh threads after sending
-  
-      // Determine if the sender is the seller or a bidder
-      const isSeller = userId === livestockDetails.owner_id;
-  
-      if (replyToThreadId) {
-        // Notify the original thread creator when a reply is made
-        const originalThread = threads.find((thread) => thread.thread_id === replyToThreadId);
-        if (originalThread) {
-          const { created_by: threadCreatorId } = originalThread;
-  
-          // Skip notification if replying to self
-          if (threadCreatorId !== userId) {
-            const { error: replyNotificationError } = await supabase
-              .from('notifications')
-              .insert([
-                {
-                  livestock_id: item.livestock_id,
-                  recipient_id: threadCreatorId,
-                  recipient_role: isSeller ? 'BIDDER' : 'SELLER', // Notify opposite role
-                  message: `${isSeller ? 'The seller' : 'A bidder'} has replied to your message in the forum about ${livestockDetails.category}.`,
-                  is_read: false,
-                  notification_type: 'NEW_FORUM_ANSWER',
-                },
-              ]);
-  
-            if (replyNotificationError) {
-              console.error('Error sending reply notification:', replyNotificationError.message);
-            }
-          }
-        }
-      } else {
-        // Notify all bidders when the seller starts a new discussion
-        if (isSeller) {
-          const { data: bidders, error: bidderError } = await supabase
-            .from('bids')
-            .select('bidder_id')
-            .eq('livestock_id', item.livestock_id);
-  
-          if (bidderError) {
-            console.error('Error fetching bidders:', bidderError.message);
-          } else {
-            const notifications = bidders.map((bidder) => ({
-              livestock_id: item.livestock_id,
-              recipient_id: bidder.bidder_id,
-              recipient_role: 'BIDDER',
-              message: `The seller has started a new discussion about ${livestockDetails.category}.`,
-              is_read: false,
-              notification_type: 'NEW_FORUM_QUESTION',
-            }));
-  
-            const { error: discussionNotificationError } = await supabase
-              .from('notifications')
-              .insert(notifications);
-  
-            if (discussionNotificationError) {
-              console.error('Error sending discussion notifications:', discussionNotificationError.message);
-            }
-          }
-        } else {
-          // Notify the seller when a bidder starts a new discussion
-          const { error: sellerNotificationError } = await supabase
-            .from('notifications')
-            .insert([
-              {
-                livestock_id: item.livestock_id,
-                recipient_id: livestockDetails.owner_id,
-                recipient_role: 'SELLER',
-                message: `A bidder has started a new discussion about your ${livestockDetails.category}.`,
-                is_read: false,
-                notification_type: 'NEW_FORUM_QUESTION',
-              },
-            ]);
-  
-          if (sellerNotificationError) {
-            console.error('Error sending notification to seller:', sellerNotificationError.message);
-          }
-        }
-      }
+      fetchThreads();
     } catch (error) {
-      console.error('Error sending message or notifications:', error.message);
+      console.error('Error sending message:', error.message);
     }
   };
-  
-  
 
   const toggleThreadExpansion = (threadId) => {
     setExpandedThreads((prevState) => ({
@@ -231,97 +153,71 @@ const ForumPage = ({ route, navigation }) => {
     const childReplies = threads.filter((reply) => reply.parent_id === thread.thread_id);
 
     return (
-      <View>
-        {/* Parent Thread */}
-        <View style={styles.threadContainer}>
-          <View style={styles.profileContainer}>
-            <Image source={{ uri: profileImage }} style={styles.profileImage} />
-            <View>
-              <Text style={[styles.threadRole, isSeller && styles.sellerRole]}>
-                {role}: {thread.profiles?.full_name || thread.created_by}
-              </Text>
-              <Text style={styles.threadMessage}>{thread.message}</Text>
-              <Text style={styles.threadTimestamp}>{new Date(thread.created_at).toLocaleString()}</Text>
-            </View>
+      <View style={styles.threadContainer}>
+        <View style={styles.threadHeader}>
+          <Image source={{ uri: profileImage }} style={styles.profileImage} />
+          <View>
+            <Text style={[styles.roleText, isSeller && styles.sellerRole]}>
+              {role}: {thread.profiles?.full_name || thread.created_by}
+            </Text>
+            <Text style={styles.messageText}>{thread.message}</Text>
+            <Text style={styles.timestampText}>{new Date(thread.created_at).toLocaleString()}</Text>
           </View>
-
-          {/* Reply Button */}
-          <TouchableOpacity
-            style={styles.replyButton}
-            onPress={() => {
-              setReplyToThreadId(thread.thread_id);
-              setNewMessage('');
-            }}
-          >
-            <Text style={styles.replyButtonText}>Reply</Text>
-          </TouchableOpacity>
-
-          {/* Expand/Collapse Replies */}
-          {childReplies.length > 0 && (
-            <TouchableOpacity
-              style={styles.expandButton}
-              onPress={() => toggleThreadExpansion(thread.thread_id)}
-            >
-              <Text style={styles.expandButtonText}>
-                {expandedThreads[thread.thread_id] ? 'Hide Replies' : `View Replies (${childReplies.length})`}
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
-
-        {/* Child Replies */}
+        <TouchableOpacity
+          style={styles.replyButton}
+          onPress={() => {
+            setReplyToThreadId(thread.thread_id);
+            setNewMessage('');
+          }}
+        >
+          <Text style={styles.replyButtonText}>Reply</Text>
+        </TouchableOpacity>
+        {childReplies.length > 0 && (
+          <TouchableOpacity
+            style={styles.expandButton}
+            onPress={() => toggleThreadExpansion(thread.thread_id)}
+          >
+            <Text style={styles.expandButtonText}>
+              {expandedThreads[thread.thread_id] ? 'Hide Replies' : `View Replies (${childReplies.length})`}
+            </Text>
+          </TouchableOpacity>
+        )}
         {expandedThreads[thread.thread_id] &&
-          childReplies.map((reply) => {
-            const replyImage = reply.profiles?.profile_image || placeholderImage;
-            return (
-              <View key={reply.thread_id} style={styles.replyContainer}>
-                <View style={styles.profileContainer}>
-                  <Image source={{ uri: replyImage }} style={styles.profileImage} />
-                  <View>
-                    <Text style={[styles.threadRole, reply.created_by === livestockDetails.owner_id && styles.sellerRole]}>
-                      Reply by {reply.profiles?.full_name || reply.created_by}
-                    </Text>
-                    <Text style={styles.threadMessage}>{reply.message}</Text>
-                    <Text style={styles.threadTimestamp}>{new Date(reply.created_at).toLocaleString()}</Text>
-                  </View>
-                </View>
+          childReplies.map((reply) => (
+            <View key={reply.thread_id} style={styles.replyContainer}>
+              <Image source={{ uri: reply.profiles?.profile_image || placeholderImage }} style={styles.replyImage} />
+              <View>
+                <Text style={[styles.roleText, reply.created_by === livestockDetails.owner_id && styles.sellerRole]}>
+                  Reply by {reply.profiles?.full_name || reply.created_by}
+                </Text>
+                <Text style={styles.messageText}>{reply.message}</Text>
+                <Text style={styles.timestampText}>{new Date(reply.created_at).toLocaleString()}</Text>
               </View>
-            );
-          })}
+            </View>
+          ))}
       </View>
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <LinearGradient colors={['#257446', '#234D35']} style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{livestockDetails.category} Forum</Text>
-      </LinearGradient>
-
-      {/* Livestock Details */}
-      <View style={styles.detailsContainer}>
-        <Text style={styles.detailsText}>
-          Breed: {livestockDetails.breed} | Weight: {livestockDetails.weight} kg
+      <AuctionDetailsHeader title="Forum" onBackPress={() => navigation.goBack()} />
+      <View style={styles.livestockDetails}>
+        <Text style={styles.livestockText}>
+          {livestockDetails.category}: {livestockDetails.breed} | {livestockDetails.weight}kg
         </Text>
       </View>
-
-      {/* Forum Threads */}
       {loading ? (
         <ActivityIndicator size="large" color="#257446" style={styles.loader} />
       ) : (
         <FlatList
-          data={threads.filter((thread) => !thread.parent_id)} // Only top-level threads
+          data={threads.filter((thread) => !thread.parent_id)}
           renderItem={renderThread}
           keyExtractor={(thread) => thread.thread_id.toString()}
-          style={styles.threadsList}
+          contentContainerStyle={styles.threadList}
         />
       )}
-
-      {/* Input Section */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.inputContainer}
@@ -346,30 +242,28 @@ const ForumPage = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f9f9f9' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20 },
-  backButton: { marginRight: 10 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff', left: 80 },
-  detailsContainer: { padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
-  detailsText: { fontSize: 16, fontWeight: '500', color: '#444' },
-  threadsList: { padding: 10 },
-  threadContainer: { marginBottom: 12, padding: 12, backgroundColor: '#fff', borderRadius: 8 },
-  profileContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  profileImage: { width: 50, height: 50, borderRadius: 25, marginRight: 10 },
-  replyContainer: { marginLeft: 20, padding: 10, backgroundColor: '#f9f9f9', borderLeftWidth: 2, borderLeftColor: '#ccc' },
-  threadRole: { fontWeight: 'bold', marginBottom: 4, color: '#333' },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  livestockDetails: { padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
+  livestockText: { fontSize: 16, fontWeight: '600', color: '#333' },
+  threadList: { padding: 10 },
+  threadContainer: { marginBottom: 12, padding: 10, backgroundColor: '#fff', borderRadius: 8, shadowOpacity: 0.1 },
+  threadHeader: { flexDirection: 'row', marginBottom: 8 },
+  profileImage: { width: 40, height: 40, borderRadius: 20, marginRight: 10 },
+  roleText: { fontWeight: 'bold', marginBottom: 4 },
   sellerRole: { color: '#257446' },
-  threadMessage: { fontSize: 15, marginBottom: 8 },
-  threadTimestamp: { fontSize: 12, color: '#888', textAlign: 'right' },
-  replyButton: { marginTop: 4 },
+  messageText: { fontSize: 14, color: '#444' },
+  timestampText: { fontSize: 12, color: '#777', marginTop: 4 },
+  replyButton: { marginTop: 6, alignSelf: 'flex-start' },
   replyButtonText: { color: '#257446', fontWeight: 'bold' },
-  expandButton: { marginTop: 4 },
+  expandButton: { marginTop: 6, alignSelf: 'flex-start' },
   expandButtonText: { color: '#257446', fontWeight: 'bold' },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#fff' },
-  input: { flex: 1, backgroundColor: '#f1f1f1', borderRadius: 20, padding: 12, marginRight: 10 },
-  sendButton: { backgroundColor: '#257446', padding: 10, borderRadius: 20 },
+  replyContainer: { marginLeft: 20, paddingVertical: 6, paddingLeft: 10, backgroundColor: '#f1f1f1', borderRadius: 6 },
+  replyImage: { width: 30, height: 30, borderRadius: 15, marginRight: 10 },
+  inputContainer: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e0e0e0' },
+  input: { flex: 1, backgroundColor: '#f0f0f0', borderRadius: 20, padding: 12, marginRight: 10, fontSize: 14 },
+  sendButton: { backgroundColor: '#257446', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20 },
   disabledSendButton: { backgroundColor: '#ccc' },
-  sendButtonText: { color: '#fff', fontWeight: 'bold' },
+  sendButtonText: { color: '#fff', fontWeight: '600' },
 });
 
 export default ForumPage;

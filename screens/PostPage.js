@@ -29,9 +29,10 @@ const PostPage = () => {
   const [startingPrice, setStartingPrice] = useState('');
   const [location, setLocation] = useState('');
   const [quantity, setQuantity] = useState('');
-  const [auctionDuration, setAuctionDuration] = useState({ hours: '0', minutes: '0' });
+  const [auctionDuration, setAuctionDuration] = useState({ days: '0', hours: '0', minutes: '0' });
   const [loading, setLoading] = useState(false);
   const [ownerId, setOwnerId] = useState(null);
+  
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -159,10 +160,12 @@ const PostPage = () => {
       return;
     }
   
+    // Parse and validate duration
+    const durationDays = parseInt(auctionDuration.days || '0', 10);
     const durationHours = parseInt(auctionDuration.hours || '0', 10);
     const durationMinutes = parseInt(auctionDuration.minutes || '0', 10);
   
-    if (durationHours <= 0 && durationMinutes <= 0) {
+    if (durationDays <= 0 && durationHours <= 0 && durationMinutes <= 0) {
       Alert.alert('Error', 'Auction duration must be greater than 0');
       return;
     }
@@ -177,9 +180,13 @@ const PostPage = () => {
         ? await uploadFileToSupabase(vetCertificate, `vet-certificate-${Date.now()}.pdf`)
         : null;
   
-      const now = new Date();
-      const auctionStart = now.toISOString();
-      const auctionEnd = new Date(now.getTime() + durationHours * 3600000 + durationMinutes * 60000).toISOString();
+      const nowUTC = new Date(); // Explicit UTC
+      const auctionEnd = new Date(
+        nowUTC.getTime() +
+          durationDays * 24 * 60 * 60 * 1000 +
+          durationHours * 60 * 60 * 1000 +
+          durationMinutes * 60 * 1000
+      );
   
       const { error } = await supabase.from('livestock').insert({
         owner_id: ownerId,
@@ -194,9 +201,10 @@ const PostPage = () => {
         image_url: imageUrl,
         proof_of_ownership_url: proofOfOwnershipUrl,
         vet_certificate_url: vetCertificateUrl,
-        auction_start: auctionStart,
-        auction_end: auctionEnd, // Provide calculated value
+        auction_start: nowUTC.toISOString(),
+        auction_end: auctionEnd.toISOString(),
         status: 'PENDING',
+        bidding_duration: `${durationDays} days ${durationHours} hours ${durationMinutes} minutes`,
       });
   
       if (error) throw error;
@@ -210,7 +218,6 @@ const PostPage = () => {
     }
   };
   
-
 
   return (
     <KeyboardAvoidingView
@@ -270,8 +277,16 @@ const PostPage = () => {
         <Text style={styles.label}>Quantity</Text>
         <TextInput style={styles.input} value={quantity} onChangeText={setQuantity} placeholder="Enter quantity" keyboardType="numeric" />
 
-        <Text style={styles.label}>Auction Duration (Hours:Minutes)</Text>
+        <Text style={styles.label}>Auction Duration (Days:Hours:Minutes)</Text>
         <View style={styles.durationContainer}>
+          <TextInput
+            style={[styles.input, styles.durationInput]}
+            value={auctionDuration.days}
+            onChangeText={(text) => setAuctionDuration({ ...auctionDuration, days: text.replace(/[^0-9]/g, '') })}
+            placeholder="Days"
+            keyboardType="numeric"
+          />
+          <Text>:</Text>
           <TextInput
             style={[styles.input, styles.durationInput]}
             value={auctionDuration.hours}
@@ -288,6 +303,7 @@ const PostPage = () => {
             keyboardType="numeric"
           />
         </View>
+
 
         <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={loading}>
           <Text style={styles.submitButtonText}>{loading ? 'Submitting...' : 'Submit'}</Text>
@@ -335,7 +351,7 @@ const styles = StyleSheet.create({
   },
   durationInput: {
     height: 40,
-    width: '48%',
+    width: '32%',
     borderColor: '#ccc',
     borderWidth: 1,
     borderRadius: 5,

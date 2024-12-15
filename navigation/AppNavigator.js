@@ -167,7 +167,7 @@ const AppNavigator = () => {
         component={OtpPage}
         options={{headerShown: false}}
         />
-              <Stack.Screen
+        <Stack.Screen
         name='SellerTransactionPage'
         component={SellerTransactionPage}
         options={{headerShown: false}}

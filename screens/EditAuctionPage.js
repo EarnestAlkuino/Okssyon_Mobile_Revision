@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { supabase } from '../supabase';
+import AuctionDetailsHeader from '../Components/LivestockAuctionDetailPage/AuctionDetailsHeader';
 
 const EditAuctionPage = ({ route, navigation }) => {
   const { itemId } = route.params;
@@ -93,6 +94,7 @@ const EditAuctionPage = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
+      <AuctionDetailsHeader title="Auction Details" onBackPress={() => navigation.goBack()} />
       <Text style={styles.header}>Edit Auction</Text>
       <Text style={styles.label}>Category</Text>
       <TextInput

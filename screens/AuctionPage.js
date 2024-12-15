@@ -1,8 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, FlatList, StyleSheet, Image, ActivityIndicator, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  Image,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons'; // For updated icons
 import { useIsFocused } from '@react-navigation/native';
 import { supabase } from '../supabase';
-import Header from '../Components/Header';
+import AuctionHeader from '../Components/AuctionHeader';
 
 const AuctionPage = ({ navigation, route }) => {
   const { category, userId } = route.params;
@@ -11,24 +21,21 @@ const AuctionPage = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
 
   // Fetch livestock data from Supabase
-  const fetchLivestockData = async (start = 0, limit = 10) => {
+  const fetchLivestockData = async () => {
     setLoading(true);
     try {
-      // Fetch AVAILABLE livestock with the correct category
       const { data, error } = await supabase
         .from('livestock')
         .select('*')
         .eq('status', 'AVAILABLE')
-        .neq('category', '') // Exclude records with empty categories
-        .eq('category', category.toLowerCase()) // Match category case-insensitively
-        .range(start, start + limit - 1);
+        .neq('category', '')
+        .eq('category', category.toLowerCase());
 
       if (error) {
         console.error('Error fetching data:', error.message);
         Alert.alert('Error', `Failed to fetch livestock data: ${error.message}`);
       } else {
-        console.log('Fetched Data:', data); // Log fetched data
-        setLivestockData((prevData) => [...prevData, ...data]);
+        setLivestockData(data);
       }
     } catch (err) {
       console.error('Unexpected error:', err);
@@ -38,13 +45,11 @@ const AuctionPage = ({ navigation, route }) => {
   };
 
   useEffect(() => {
-    if (isFocused && category) {
-      console.log('Fetching for category:', category); // Log the category
+    if (isFocused) {
       fetchLivestockData();
     }
-  }, [isFocused, category]);
+  }, [isFocused]);
 
-  // Handle livestock selection
   const handleLivestockSelect = useCallback(
     (item) => {
       navigation.navigate('LivestockAuctionDetailPage', { itemId: item.livestock_id, userId });
@@ -52,7 +57,6 @@ const AuctionPage = ({ navigation, route }) => {
     [navigation, userId]
   );
 
-  // Render each livestock item
   const renderItem = useCallback(
     ({ item }) => (
       <TouchableOpacity style={styles.card} onPress={() => handleLivestockSelect(item)}>
@@ -61,22 +65,23 @@ const AuctionPage = ({ navigation, route }) => {
           style={styles.image}
         />
         <View style={styles.infoContainer}>
-          <Text style={styles.categoryText}>{item.category}</Text>
-          <Text style={styles.detailsText}>
-            Breed: <Text style={styles.detailValue}>{item.breed || 'Unknown'}</Text>
-          </Text>
-          <Text style={styles.detailsText}>
-            Location: <Text style={styles.detailValue}>{item.location || 'Not specified'}</Text>
-          </Text>
-          <Text style={styles.detailsText}>
-            Weight: <Text style={styles.detailValue}>{item.weight} kg</Text>
-          </Text>
-          <Text style={styles.detailsText}>
-            Gender: <Text style={styles.detailValue}>{item.gender}</Text>
-          </Text>
-          <Text style={styles.detailsText}>
-            Starting Price: <Text style={styles.priceText}>₱{item.starting_price?.toLocaleString()}</Text>
-          </Text>
+          <Text style={styles.breedText}>Breed - {item.breed || 'Unknown Breed'}</Text>
+          <View style={styles.detailsRow}>
+            <Icon name="map-marker-outline" size={16} color="#4A5568" />
+            <Text style={styles.detailValue}>Location - {item.location || 'Not specified'}</Text>
+          </View>
+          <View style={styles.detailsRow}>
+            <Icon name="scale-bathroom" size={16} color="#4A5568" /> {/* Updated weight icon */}
+            <Text style={styles.detailValue}>Weight - {item.weight} kg</Text>
+          </View>
+          <View style={styles.detailsRow}>
+            <Icon name="gender-male-female" size={16} color="#4A5568" />
+            <Text style={styles.detailValue}>Gender - {item.gender}</Text>
+          </View>
+          <View style={styles.priceContainer}>
+            <Text style={styles.priceLabel}>Starting Price</Text>
+            <Text style={styles.priceText}>₱{item.starting_price?.toLocaleString()}</Text>
+          </View>
         </View>
       </TouchableOpacity>
     ),
@@ -86,7 +91,7 @@ const AuctionPage = ({ navigation, route }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#405e40" />
+        <ActivityIndicator size="large" color="#2C3E50" />
         <Text>Loading...</Text>
       </View>
     );
@@ -94,12 +99,7 @@ const AuctionPage = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      <Header
-        title={`Available ${category}`}
-        showBackButton={true}
-        onBackPress={() => navigation.goBack()}
-        showSettingsButton={false}
-      />
+      <AuctionHeader title={`Available ${category}`} onBackPress={() => navigation.goBack()} />
       {livestockData.length > 0 ? (
         <FlatList
           data={livestockData}
@@ -119,66 +119,76 @@ const AuctionPage = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f2f2',
+    backgroundColor: '#f8f8f8',
   },
   listContainer: {
+    paddingHorizontal: 16,
     paddingBottom: 20,
   },
   card: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 15,
-    padding: 10,
-    marginBottom: 20,
-    alignItems: 'center',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
-    top: 20,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
   },
   image: {
-    width: 90,
-    height: 90,
-    borderRadius: 10,
-    marginRight: 15,
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#e0e0e0',
   },
   infoContainer: {
     flex: 1,
+    justifyContent: 'space-between',
   },
-  categoryText: {
-    fontSize: 20,
+  breedText: {
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#335441',
+    color: '#2C3E50',
     marginBottom: 8,
   },
-  detailsText: {
-    fontSize: 14,
-    color: '#555',
-    marginBottom: 6,
+  detailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   detailValue: {
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 14,
+    marginLeft: 4,
+    color: '#4A5568',
+  },
+  priceContainer: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    alignItems: 'flex-end',
+  },
+  priceLabel: {
+    fontSize: 12,
+    color: '#6C6C6C',
   },
   priceText: {
-    fontWeight: 'bold',
     fontSize: 16,
-    color: '#405e40',
+    fontWeight: 'bold',
+    color: '#1E7848',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f9f9f9',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 16,
   },
   emptyText: {
     fontSize: 16,
-    color: '#777',
+    color: '#6C6C6C',
   },
 });
 
