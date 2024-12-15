@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Image } from 'react-native';
 import { supabase } from '../supabase';
-import 'react-native-get-random-values';
-import { v4 as uuidv4 } from 'uuid';
-
 
 const LivestockAuctionDetailPage = ({ route, navigation }) => {
   const { itemId, userId: userIdFromParams } = route.params || {};
@@ -40,12 +37,13 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
         .single();
 
       if (error) {
-        Alert.alert("Error", "Failed to fetch item details.");
+        Alert.alert('Error', 'Failed to fetch item details.');
       } else {
         setItem(data);
-        fetchLatestBid(itemId);
-        if (data.auction_end) {
-          startCountdown(data.auction_end);
+
+        if (data.status === 'AVAILABLE' && data.auction_duration) {
+          console.log('Status changed to AVAILABLE. Starting countdown...');
+          startCountdown(data.auction_duration, data.livestock_id);
         }
       }
       setLoading(false);
@@ -68,7 +66,6 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
 
     fetchItem();
 
-    // Subscribe to real-time updates for the livestock item
     const subscription = supabase
       .channel('livestock_updates')
       .on(
@@ -76,7 +73,14 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
         { event: 'UPDATE', schema: 'public', table: 'livestock', filter: `livestock_id=eq.${itemId}` },
         (payload) => {
           console.log('Real-time update received:', payload.new);
-          setItem(payload.new); // Update the item state with real-time data
+
+          const updatedItem = payload.new;
+          setItem(updatedItem);
+
+          if (updatedItem.status === 'AVAILABLE' && updatedItem.auction_duration) {
+            console.log('Real-time status changed to AVAILABLE. Starting countdown...');
+            startCountdown(updatedItem.auction_duration, updatedItem.livestock_id);
+          }
         }
       )
       .subscribe();
@@ -88,13 +92,14 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
         { event: 'INSERT', schema: 'public', table: 'bids', filter: `livestock_id=eq.${itemId}` },
         (payload) => {
           const newBid = payload.new.bid_amount;
-          setLatestBid((prevBid) => Math.max(prevBid || 0, newBid));
-
-          if (payload.new.bidder_id !== userId) {
-            Alert.alert(
-              "New Bid Alert!",
-              `A new bid of ₱${newBid.toLocaleString()} has been placed.`
-            );
+          if (newBid > (latestBid || 0)) {
+            setLatestBid(newBid);
+            if (payload.new.bidder_id !== userId) {
+              Alert.alert(
+                'New Bid Alert!',
+                `A new bid of ₱${newBid.toLocaleString()} has been placed.`
+              );
+            }
           }
         }
       )
@@ -106,25 +111,32 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
     };
   }, [itemId]);
 
+  const startCountdown = (duration, livestockId) => {
+    if (!duration || !livestockId) return;
 
-  const startCountdown = (endTime) => {
-    const endTimestamp = new Date(endTime).getTime();
+    const durationParts = duration.split(':'); // Parse duration (e.g., "01:30:00")
+    const totalMilliseconds =
+      (parseInt(durationParts[0], 10) * 3600 +
+        parseInt(durationParts[1], 10) * 60 +
+        parseInt(durationParts[2], 10)) *
+      1000;
+
+    const endTime = Date.now() + totalMilliseconds;
 
     const timer = setInterval(() => {
-      const currentTime = new Date().getTime();
-      const remainingTime = endTimestamp - currentTime;
+      const remainingTime = endTime - Date.now();
 
       if (remainingTime <= 0) {
         clearInterval(timer);
         setTimeRemaining('AUCTION_ENDED');
-        declareWinner(itemId); // Declare winner when countdown ends
+        console.log('Auction ended. Declaring winner...');
+        declareWinner(livestockId);
       } else {
-        const days = Math.floor(remainingTime / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((remainingTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const hours = Math.floor(remainingTime / (1000 * 60 * 60));
         const minutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((remainingTime % (1000 * 60)) / 1000);
         setTimeRemaining(
-          `${days > 0 ? `${days}d ` : ''}${hours}h ${minutes}m ${seconds}s`
+          `${hours}h ${minutes}m ${seconds}s`
         );
       }
     }, 1000);
@@ -132,13 +144,8 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
     return () => clearInterval(timer);
   };
 
-
-
-
-  
   const declareWinner = async (livestockId) => {
     try {
-      // Fetch the highest bid
       const { data: highestBid, error: bidError } = await supabase
         .from('bids')
         .select('bidder_id, bid_amount')
@@ -146,91 +153,27 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
         .order('bid_amount', { ascending: false })
         .limit(1)
         .single();
-  
+
       if (bidError || !highestBid) {
-        console.warn('No bids found. Marking auction as ended without a sale.');
         await supabase
           .from('livestock')
           .update({ status: 'AUCTION_ENDED' })
           .eq('livestock_id', livestockId);
         return;
       }
-  
-      // Fetch the livestock details
-      const { data: livestock, error: livestockError } = await supabase
-        .from('livestock')
-        .select('owner_id, category')
-        .eq('livestock_id', livestockId)
-        .single();
-  
-      if (livestockError || !livestock) {
-        console.error('Error fetching livestock details:', livestockError);
-        return;
-      }
-  
-      // Update livestock status to SOLD
+
       const { error: updateError } = await supabase
         .from('livestock')
         .update({ winner_id: highestBid.bidder_id, status: 'AUCTION_ENDED' })
         .eq('livestock_id', livestockId);
-  
-      if (updateError) {
-        console.error('Error updating livestock status:', updateError.message);
-        return;
+
+      if (!updateError) {
+        console.log('Winner declared successfully.');
       }
-  
-      console.log('Livestock marked as SOLD');
-  
-      // Prepare notifications
-      const notifications = [
-        {
-          recipient_id: highestBid.bidder_id,
-          recipient_role: 'BIDDER',
-          livestock_id: livestockId,
-          message: `Congratulations! You won the auction for ${livestock.category} with a bid of ₱${highestBid.bid_amount.toLocaleString()}.`,
-          is_read: false,
-          notification_type: 'AUCTION_END',
-        },
-        {
-          recipient_id: livestock.owner_id,
-          recipient_role: 'SELLER',
-          livestock_id: livestockId,
-          message: `Your auction for ${livestock.category} has ended. Winning bid: ₱${highestBid.bid_amount.toLocaleString()}.`,
-          is_read: false,
-          notification_type: 'AUCTION_END',
-        },
-      ];
-  
-      for (const notification of notifications) {
-        // Check if a similar notification already exists
-        const { data: existingNotification, error: checkError } = await supabase
-          .from('notifications')
-          .select('id')
-          .eq('livestock_id', notification.livestock_id)
-          .eq('recipient_id', notification.recipient_id)
-          .eq('notification_type', notification.notification_type)
-          .single();
-  
-        if (!checkError && existingNotification) {
-          console.log('Notification already exists, skipping:', notification);
-          continue;
-        }
-  
-        // Insert notification if it doesn't exist
-        const { error: insertError } = await supabase.from('notifications').insert(notification);
-        if (insertError) {
-          console.error('Error inserting notification:', insertError.message);
-        }
-      }
-  
-      console.log('Notifications sent successfully.');
     } catch (error) {
-      console.error('Error in declareWinner:', error);
+      console.error('Error declaring winner:', error);
     }
   };
-  
-  
-  
 
   const isCreator = item && userId === item.owner_id; // Check if the user is the auction creator
 
@@ -281,7 +224,17 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
         "Are you sure you want to delete this auction?",
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Delete", style: "destructive", onPress: deleteAuction },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await deleteAuction(); // Ensure deleteAuction executes properly
+              } catch (error) {
+                console.error("Error in deleteAuction:", error);
+              }
+            },
+          },
         ]
       );
     } else if (actionType === "Edit") {
@@ -306,20 +259,11 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
   
   
 
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#405e40" />
         <Text>Loading...</Text>
-      </View>
-    );
-  }
-
-  if (!item) {
-    return (
-      <View style={styles.container}>
-        <Text>No item details available.</Text>
       </View>
     );
   }
@@ -343,14 +287,6 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
           <Text style={styles.subHeader}>Weight: {item.weight}kg   Breed: {item.breed}</Text>
         </View>
 
-        <View style={styles.sellerContainer}>
-          <Image style={styles.avatar} source={{ uri: 'https://via.placeholder.com/50' }} />
-          <View style={styles.sellerInfo}>
-            <Text style={styles.label}>Seller: <Text style={styles.infoText}>{item.profiles?.full_name || 'Unknown'}</Text></Text>
-            <Text style={styles.label}>Location: <Text style={styles.infoText}>{item.location}</Text></Text>
-          </View>
-        </View>
-
         <View style={styles.priceSection}>
           <View style={styles.priceContainer}>
             <Text style={styles.priceLabel}>Starting Price</Text>
@@ -362,81 +298,47 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
           </View>
         </View>
 
-        <Text style={styles.timeRemaining}>Time Remaining: {timeRemaining || 'Loading...'}</Text>
+        <Text style={styles.timeRemaining}>
+          Time Remaining: {timeRemaining || 'Loading...'}
+        </Text>
 
-<View style={styles.buttonContainer}>
-  {/* Ask / Delete Button */}
-  <TouchableOpacity
-    style={[
-      styles.button,
-      (!isCreator && timeRemaining === 'AUCTION_ENDED') ? styles.disabledButton : null,
-    ]}
-    onPress={() => {
-      if (timeRemaining === 'AUCTION_ENDED') {
-        Alert.alert(
-          'Auction Ended',
-          isCreator ? 'You cannot delete an ended auction.' : 'You cannot ask questions on an ended auction.'
-        );
-        return;
-      }
-      console.log('Button Pressed: ', isCreator ? 'Delete' : 'Ask');
-      handleAction(isCreator ? 'Delete' : 'Ask');
-    }}
-    disabled={timeRemaining === 'AUCTION_ENDED'}
-  >
-    <Text style={styles.buttonText}>{isCreator ? 'Delete' : 'Ask'}</Text>
-  </TouchableOpacity>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => handleAction(isCreator ? 'Delete' : 'Ask')}
+          >
+            <Text style={styles.buttonText}>{isCreator ? 'Delete' : 'Ask'}</Text>
+          </TouchableOpacity>
 
-  {/* Edit / Bid Button */}
-  <TouchableOpacity
-    style={[
-      styles.button,
-      (timeRemaining === 'AUCTION_ENDED') ? styles.disabledButton : null,
-    ]}
-    onPress={() => {
-      if (timeRemaining === 'AUCTION_ENDED') {
-        Alert.alert('Auction Ended', 'You cannot edit or bid on an ended auction.');
-        return;
-      }
-      console.log('Button Pressed: ', isCreator ? 'Edit' : 'Bid');
-      handleAction(isCreator ? 'Edit' : 'Bid');
-    }}
-    disabled={timeRemaining === 'AUCTION_ENDED'}
-  >
-    <Text style={styles.buttonText}>{isCreator ? 'Edit' : 'Bid'}</Text>
-  </TouchableOpacity>
-</View>
-</View>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => handleAction(isCreator ? 'Edit' : 'Bid')}
+          >
+            <Text style={styles.buttonText}>{isCreator ? 'Edit' : 'Bid'}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  imageContainer: { width: '100%', height: 200, position: 'relative', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  imageContainer: { width: '100%', height: 200, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   mainImage: { width: '100%', height: '100%', resizeMode: 'cover' },
-  imageLoader: { position: 'absolute', zIndex: 1 },
   contentContainer: { flex: 1, paddingHorizontal: 20 },
   infoContainer: { padding: 20, backgroundColor: '#f8f8f8', borderRadius: 8, marginBottom: 20 },
   header: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 10 },
   subHeader: { fontSize: 16, color: '#555', textAlign: 'center', marginBottom: 20 },
-  sellerContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  avatar: { width: 50, height: 50, borderRadius: 25, marginRight: 10 },
-  sellerInfo: { flex: 1 },
-  label: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-  infoText: { fontWeight: 'normal', color: '#555' },
   priceSection: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   priceContainer: { flex: 1, alignItems: 'center', padding: 15, backgroundColor: '#f2f2f2', borderRadius: 8, marginHorizontal: 5 },
   priceLabel: { fontSize: 16, color: '#555' },
   priceText: { fontSize: 20, fontWeight: 'bold', color: '#333', marginTop: 5 },
-  timeRemaining: { textAlign: 'leeft', color: '#777', marginVertical: 10, fontSize: 16 },
+  timeRemaining: { textAlign: 'center', color: '#777', marginVertical: 10, fontSize: 16 },
   buttonContainer: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 20 },
   button: { backgroundColor: '#335441', padding: 10, borderRadius: 5, width: '40%', alignItems: 'center' },
-  disabledButton: { backgroundColor: '#ccc' },
   buttonText: { color: '#fff', fontWeight: 'bold' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });
 
 export default LivestockAuctionDetailPage;
-
-

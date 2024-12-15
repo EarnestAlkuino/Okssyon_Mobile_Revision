@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert, Image } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert, Image, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../supabase';
@@ -15,14 +15,16 @@ const HomePage = ({ navigation, route }) => {
   const { userId: userIdFromRoute } = route.params || {};
   const [userName, setUserName] = useState('');
   const [loading, setLoading] = useState(true);
-
-  const [announcement, setAnnouncement] = useState('Upcoming Auction!');
-  const [announcementDate, setAnnouncementDate] = useState('October 20, 2024');
+  const [announcements, setAnnouncements] = useState([]);
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const flatListRef = useRef(null); // Reference for the FlatList
+  const currentIndex = useRef(0); // Current index for the auto-scroll
 
   useEffect(() => {
-    const fetchUserName = async () => {
+    const fetchData = async () => {
       let userId = userIdFromRoute;
 
+      // Fetch user data
       if (!userId) {
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError || !user) {
@@ -33,6 +35,7 @@ const HomePage = ({ navigation, route }) => {
         userId = user.id;
       }
 
+      // Fetch user profile
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('full_name')
@@ -45,20 +48,40 @@ const HomePage = ({ navigation, route }) => {
         setUserName(profileData.full_name);
       }
 
+      // Fetch the 4 latest announcements from the 'announcement' table
+      const { data: announcementData, error: announcementError } = await supabase
+        .from('announcements')
+        .select('text, date')
+        .order('date', { ascending: false })
+        .limit(4);
+
+      if (announcementError) {
+        Alert.alert('Error fetching announcements', announcementError.message);
+      } else {
+        setAnnouncements(announcementData);
+      }
+
       setLoading(false);
     };
 
-    fetchUserName();
+    fetchData();
   }, [userIdFromRoute, navigation]);
 
-  const auctionCategories = [
-    { id: '1', title: 'Cattle', Icon: CattleIcon },
-    { id: '2', title: 'Horse', Icon: HorseIcon },
-    { id: '3', title: 'Sheep', Icon: SheepIcon },
-    { id: '4', title: 'Carabao', Icon: CarabaoIcon },
-    { id: '5', title: 'Goat', Icon: GoatIcon },
-    { id: '6', title: 'Pig', Icon: PigIcon },
-  ];
+  // Auto-scroll announcements
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (flatListRef.current && announcements.length > 0) {
+        currentIndex.current =
+          (currentIndex.current + 1) % announcements.length; // Loop back to the first item
+        flatListRef.current.scrollToIndex({
+          index: currentIndex.current,
+          animated: true,
+        });
+      }
+    }, 10000); // 10-second interval
+
+    return () => clearInterval(interval); // Clear interval on unmount
+  }, [announcements]);
 
   const renderCategoryItem = ({ item }) => {
     const IconComponent = item.Icon;
@@ -74,6 +97,18 @@ const HomePage = ({ navigation, route }) => {
       </TouchableOpacity>
     );
   };
+
+  const renderAnnouncementItem = ({ item }) => (
+    <View style={styles.announcementItem}>
+      <Text style={styles.announcementText}>{item.text}</Text>
+      <Text style={styles.announcementDate}>{item.date}</Text>
+    </View>
+  );
+
+  const onScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+    { useNativeDriver: false }
+  );
 
   if (loading) {
     return (
@@ -99,8 +134,17 @@ const HomePage = ({ navigation, route }) => {
         colors={['rgba(185, 211, 112, 0.8)', 'rgba(113, 186, 144, 0.8)']}
         style={styles.announcementBanner}
       >
-        <Text style={styles.announcementText}>{announcement}</Text>
-        <Text style={styles.announcementDate}>{announcementDate}</Text>
+        <FlatList
+          ref={flatListRef} // Attach FlatList ref
+          data={announcements}
+          renderItem={renderAnnouncementItem}
+          keyExtractor={(item, index) => index.toString()}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          pagingEnabled // Snap to each announcement
+          scrollEventThrottle={16} // Smooth scroll updates
+          onScroll={onScroll} // Attach scroll animation
+        />
       </LinearGradient>
 
       <LinearGradient colors={['#257446', '#234D35']} style={styles.gradientButton}>
@@ -112,18 +156,23 @@ const HomePage = ({ navigation, route }) => {
       <Text style={styles.selectionLabel}>Livestock Auction Selection</Text>
 
       <FlatList
-        data={auctionCategories}
+        data={[
+          { id: '1', title: 'Cattle', Icon: CattleIcon },
+          { id: '2', title: 'Horse', Icon: HorseIcon },
+          { id: '3', title: 'Sheep', Icon: SheepIcon },
+          { id: '4', title: 'Carabao', Icon: CarabaoIcon },
+          { id: '5', title: 'Goat', Icon: GoatIcon },
+          { id: '6', title: 'Pig', Icon: PigIcon },
+        ]}
         renderItem={renderCategoryItem}
         keyExtractor={(item) => item.id}
-        numColumns={3} 
+        numColumns={3}
         columnWrapperStyle={styles.columnWrapper}
         contentContainerStyle={styles.grid}
-        style={styles.flatList}
       />
     </View>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {
@@ -148,9 +197,6 @@ const styles = StyleSheet.create({
     color: '#405e40',
     marginTop: 4,
   },
-  searchIcon: {
-    padding: 5,
-  },
   logo: {
     position: 'absolute',
     top: 20,
@@ -167,6 +213,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     alignItems: 'center',
     backgroundColor: '#e5f2e1',
+  },
+  announcementItem: {
+    marginHorizontal: 15,
+    alignItems: 'center',
+    width: 250,
   },
   announcementText: {
     fontSize: 22,
@@ -208,7 +259,7 @@ const styles = StyleSheet.create({
   iconButton: {
     flex: 1,
     alignItems: 'center',
-    margin: 5, 
+    margin: 5,
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
     paddingVertical: 20,
@@ -219,17 +270,10 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 2,
     minWidth: 100,
-    maxWidth: 120, 
+    maxWidth: 120,
   },
   iconContainer: {
     alignItems: 'center',
-  },
-  categoryTitle: {
-    fontSize: 16,
-    color: '#405e40',
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginTop: 8,
   },
   columnWrapper: {
     justifyContent: 'space-between',
@@ -238,10 +282,11 @@ const styles = StyleSheet.create({
   flatList: {
     flex: 1,
   },
-  grid: {
-    paddingTop: 25,
-    paddingBottom: 100,
-    paddingHorizontal: 10,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F4F4F4',
   },
 });
 

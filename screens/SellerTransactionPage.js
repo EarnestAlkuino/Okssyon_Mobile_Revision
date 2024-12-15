@@ -1,122 +1,229 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  ActivityIndicator,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { supabase } from '../supabase';
 
-const SellerTransactionPage = ({ navigation }) => {
-  // Hardcoded transaction details
-  const transactionDetails = {
-    category: 'Cattle',
-    location: 'Farmville',
-    winningBid: {
-      bidder: 'John Doe',
-      bidAmount: 15000,
-    },
-  };
+const SellerTransactionPage = ({ route, navigation }) => {
+  const { livestockId } = route.params || {};
+  const [transactionSteps, setTransactionSteps] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleConfirm = () => {
-    // Simulate confirmation action
-    Alert.alert('Success', 'Transaction confirmed successfully.');
-    navigation.navigate('LivestockAuctionDetailPage', { itemId: 'hardcoded-livestock-id' });
-  };
+  const isValidUUID = (id) =>
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[4-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(id);
+
+  useEffect(() => {
+    if (!livestockId || !isValidUUID(livestockId)) {
+      Alert.alert('Error', 'Invalid livestock ID. Please try again.');
+      navigation.goBack();
+      return;
+    }
+
+    const fetchTransactionData = async () => {
+      setLoading(true);
+      try {
+        const { data: livestockData, error: livestockError } = await supabase
+          .from('livestock')
+          .select('status, winner_id')
+          .eq('livestock_id', livestockId)
+          .single();
+
+        if (livestockError || !livestockData) {
+          Alert.alert('Error', 'Failed to load livestock data. Please try again.');
+          return;
+        }
+
+        const { status, winner_id } = livestockData;
+        const steps = [];
+
+        steps.push({
+          id: '1',
+          name: 'Livestock Posted',
+          status: 'completed',
+        });
+
+        steps.push({
+          id: '2',
+          name: 'Auction in Progress',
+          status: status === 'AUCTION_ENDED' || winner_id ? 'completed' : 'pending',
+        });
+
+        if (winner_id) {
+          const { data: bidderData, error: bidderError } = await supabase
+            .from('profiles')
+            .select('name')
+            .eq('id', winner_id)
+            .single();
+
+          if (!bidderError && bidderData) {
+            steps.push({
+              id: '3',
+              name: `Winning Bidder: ${bidderData.name}`,
+              status: 'completed',
+            });
+          } else {
+            steps.push({
+              id: '3',
+              name: 'Awaiting Winner Confirmation',
+              status: 'pending',
+            });
+          }
+        }
+
+        setTransactionSteps(steps);
+      } catch (error) {
+        Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+        console.error('Error fetching transaction data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTransactionData();
+  }, [livestockId]);
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#257446" />
+        <Text style={styles.loadingText}>Loading transaction steps...</Text>
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={['#f0fdf4', '#e6f7ed']} style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerText}>Seller Transaction</Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.detailTitle}>Auction Details</Text>
-        <Text style={styles.detailText}>
-          <Text style={styles.label}>Category:</Text> {transactionDetails.category}
-        </Text>
-        <Text style={styles.detailText}>
-          <Text style={styles.label}>Location:</Text> {transactionDetails.location}
-        </Text>
-
-        <Text style={styles.detailTitle}>Winning Bid</Text>
-        <Text style={styles.detailText}>
-          <Text style={styles.label}>Bidder:</Text> {transactionDetails.winningBid.bidder}
-        </Text>
-        <Text style={styles.detailText}>
-          <Text style={styles.label}>Winning Price:</Text> ₱{transactionDetails.winningBid.bidAmount.toLocaleString()}
-        </Text>
-      </View>
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
-          <Text style={styles.confirmButtonText}>Confirm Transaction</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#257446" />
         </TouchableOpacity>
+        <Text style={styles.headerText}>Auction Transaction</Text>
       </View>
-    </View>
+
+      {/* Content */}
+      <View style={styles.content}>
+        {transactionSteps.map((step, index) => (
+          <View key={step.id} style={styles.stepWrapper}>
+            {/* Left Section: Circle with Connecting Line */}
+            <View style={styles.leftSection}>
+              <View
+                style={[
+                  styles.stepCircle,
+                  step.status === 'completed'
+                    ? styles.completedStepCircle
+                    : styles.pendingStepCircle,
+                ]}
+              >
+                {step.status === 'completed' && (
+                  <Ionicons name="checkmark" size={16} color="#fff" />
+                )}
+              </View>
+              {/* Render the line only if it's not the last step */}
+              {index < transactionSteps.length - 1 && <View style={styles.stepLine} />}
+            </View>
+
+            {/* Right Section: Step Details */}
+            <View style={styles.stepDetails}>
+              <Text
+                style={[
+                  styles.stepTitle,
+                  step.status === 'completed' && styles.completedText,
+                ]}
+              >
+                {step.name}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f7f9fc',
-    padding: 20,
   },
   header: {
-    marginTop: 40,
+    paddingHorizontal: 16,
+    paddingVertical: 70,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+  },
+  backButton: {
+    marginRight: 16,
   },
   headerText: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 38,
     color: '#257446',
+    fontWeight: 'bold',
   },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    marginBottom: 20,
+  content: {
+    paddingHorizontal: 30,
+    marginTop: -10,
   },
-  detailTitle: {
+  stepWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 50, // Adjust space between steps
+  },
+  leftSection: {
+    alignItems: 'center',
+    marginRight: 16,
+    position: 'relative', // Needed for absolute line positioning
+  },
+  stepCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10, // Ensures a perfect circle
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ddd',
+    zIndex: 2, // Ensure it appears above the line
+  },
+  completedStepCircle: {
+    backgroundColor: '#257446',
+  },
+  pendingStepCircle: {
+    backgroundColor: '#ddd',
+  },
+  stepLine: {
+    position: 'absolute',
+    top: 20, // Aligns line with the bottom of the circle
+    width: 1,
+    height: 50, // Adjust height dynamically for spacing
+    backgroundColor: '#257446', // White line color
+    zIndex: 1, // Ensure it appears behind the circle
+  },
+  stepDetails: {
+    flex: 1,
+    justifyContent: 'center', // Align text vertically with the circle
+  },
+  stepTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#257446',
-    marginTop: 15,
-  },
-  detailText: {
-    fontSize: 16,
-    marginVertical: 5,
     color: '#555',
   },
-  label: {
+  completedText: {
     fontWeight: 'bold',
-    color: '#333',
+    color: '#257446',
   },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 20,
-  },
-  confirmButton: {
-    backgroundColor: '#257446',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    alignItems: 'center',
+  loadingContainer: {
     flex: 1,
-    marginHorizontal: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  confirmButtonText: {
-    color: '#fff',
+  loadingText: {
+    marginTop: 12,
     fontSize: 16,
-    fontWeight: 'bold',
+    color: '#555',
   },
 });
 

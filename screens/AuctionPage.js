@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet, Image, ActivityIndicator, Alert } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-import { supabase } from '../supabase';  // Ensure this is properly configured
+import { supabase } from '../supabase';
 import Header from '../Components/Header';
 
 const AuctionPage = ({ navigation, route }) => {
@@ -10,58 +10,78 @@ const AuctionPage = ({ navigation, route }) => {
   const [livestockData, setLivestockData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchLivestockData = async () => {
-    console.log("Fetching data for category:", category);
+  // Fetch livestock data from Supabase
+  const fetchLivestockData = async (start = 0, limit = 10) => {
     setLoading(true);
-
     try {
+      // Fetch AVAILABLE livestock with the correct category
       const { data, error } = await supabase
         .from('livestock')
         .select('*')
-        .eq('category', category)
-        .eq('status', 'AVAILABLE'); // Only fetch livestock with 'AVAILABLE' status
+        .eq('status', 'AVAILABLE')
+        .neq('category', '') // Exclude records with empty categories
+        .eq('category', category.toLowerCase()) // Match category case-insensitively
+        .range(start, start + limit - 1);
 
       if (error) {
-        console.error("Error fetching data:", error.message);
-        Alert.alert("Error", `Failed to fetch livestock data: ${error.message}`);
+        console.error('Error fetching data:', error.message);
+        Alert.alert('Error', `Failed to fetch livestock data: ${error.message}`);
       } else {
-        console.log("Fetched livestock data:", data);
-        setLivestockData(data); // Directly set the data without filtering
+        console.log('Fetched Data:', data); // Log fetched data
+        setLivestockData((prevData) => [...prevData, ...data]);
       }
     } catch (err) {
-      console.error("Unexpected error:", err);
-      Alert.alert("Error", `An unexpected error occurred: ${err.message}`);
+      console.error('Unexpected error:', err);
+      Alert.alert('Error', `An unexpected error occurred: ${err.message}`);
     }
-
     setLoading(false);
   };
 
   useEffect(() => {
     if (isFocused && category) {
+      console.log('Fetching for category:', category); // Log the category
       fetchLivestockData();
     }
-  }, [isFocused, category]);  // Removed 'userId' from dependencies since it's not necessary here
+  }, [isFocused, category]);
 
-  const handleLivestockSelect = useCallback((item) => {
-    navigation.navigate('LivestockAuctionDetailPage', { itemId: item.livestock_id, userId });
-  }, [navigation, userId]);
+  // Handle livestock selection
+  const handleLivestockSelect = useCallback(
+    (item) => {
+      navigation.navigate('LivestockAuctionDetailPage', { itemId: item.livestock_id, userId });
+    },
+    [navigation, userId]
+  );
 
-  const renderItem = useCallback(({ item }) => (
-    <TouchableOpacity style={styles.card} onPress={() => handleLivestockSelect(item)}>
-      <Image
-        source={{ uri: item.image_url || 'https://via.placeholder.com/100' }}
-        style={styles.image}
-      />
-      <View style={styles.infoContainer}>
-        <Text style={styles.categoryText}>{item.category}</Text>
-        <Text style={styles.detailsText}>Breed: <Text style={styles.detailValue}>{item.breed || 'Unknown'}</Text></Text>
-        <Text style={styles.detailsText}>Location: <Text style={styles.detailValue}>{item.location || 'Not specified'}</Text></Text>
-        <Text style={styles.detailsText}>Weight: <Text style={styles.detailValue}>{item.weight} kg</Text></Text>
-        <Text style={styles.detailsText}>Gender: <Text style={styles.detailValue}>{item.gender}</Text></Text>
-        <Text style={styles.detailsText}>Starting Price: <Text style={styles.priceText}>₱{item.starting_price?.toLocaleString()}</Text></Text>
-      </View>
-    </TouchableOpacity>
-  ), [handleLivestockSelect]);
+  // Render each livestock item
+  const renderItem = useCallback(
+    ({ item }) => (
+      <TouchableOpacity style={styles.card} onPress={() => handleLivestockSelect(item)}>
+        <Image
+          source={{ uri: item.image_url || 'https://via.placeholder.com/100' }}
+          style={styles.image}
+        />
+        <View style={styles.infoContainer}>
+          <Text style={styles.categoryText}>{item.category}</Text>
+          <Text style={styles.detailsText}>
+            Breed: <Text style={styles.detailValue}>{item.breed || 'Unknown'}</Text>
+          </Text>
+          <Text style={styles.detailsText}>
+            Location: <Text style={styles.detailValue}>{item.location || 'Not specified'}</Text>
+          </Text>
+          <Text style={styles.detailsText}>
+            Weight: <Text style={styles.detailValue}>{item.weight} kg</Text>
+          </Text>
+          <Text style={styles.detailsText}>
+            Gender: <Text style={styles.detailValue}>{item.gender}</Text>
+          </Text>
+          <Text style={styles.detailsText}>
+            Starting Price: <Text style={styles.priceText}>₱{item.starting_price?.toLocaleString()}</Text>
+          </Text>
+        </View>
+      </TouchableOpacity>
+    ),
+    [handleLivestockSelect]
+  );
 
   if (loading) {
     return (
@@ -74,10 +94,10 @@ const AuctionPage = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      <Header 
-        title={`Available ${category}`} 
+      <Header
+        title={`Available ${category}`}
         showBackButton={true}
-        onBackPress={() => navigation.goBack()} 
+        onBackPress={() => navigation.goBack()}
         showSettingsButton={false}
       />
       {livestockData.length > 0 ? (
@@ -111,9 +131,9 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 20,
     alignItems: 'center',
-    shadowOffset: { width: 0, height: 4 }, 
-    shadowOpacity: 0.3, 
-    shadowRadius: 6, 
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
     elevation: 8,
     top: 20,
   },

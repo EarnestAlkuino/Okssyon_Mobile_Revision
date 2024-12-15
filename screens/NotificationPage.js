@@ -14,86 +14,89 @@ const NotificationPage = ({ navigation }) => {
   const [error, setError] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Request notification permissions
-  useEffect(() => {
-    const getNotificationPermissions = async () => {
-      const { status } = await Notifications.getPermissionsAsync();
-      if (status !== 'granted') {
-        await Notifications.requestPermissionsAsync();
-      }
-    };
-    getNotificationPermissions();
-  }, []);
-
-  // Hide splash screen and fetch data
   useEffect(() => {
     const hideSplashScreen = async () => {
       await SplashScreen.hideAsync();
     };
     hideSplashScreen();
-
+  
     fetchNotifications();
     fetchAnnouncements();
-
-    // Real-time listener for notifications
+  
+    // Real-time listener for notifications specific to the current user
     const notificationChannel = supabase
       .channel('notifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, async (payload) => {
-        const { message, notification_type, bidder_id, seller_id } = payload.new;
-
-        // Send notifications for both roles (Bidder and Seller)
-        if (bidder_id) {
-          await sendPushNotification('Bidder Notification', message);
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications' },
+        async (payload) => {
+          const currentUserId = await getCurrentUserId(); // Function to fetch the logged-in user's ID
+          if (payload.new.recipient_id === currentUserId) {
+            // Notify only the intended user
+            await sendPushNotification('New Notification', payload.new.message);
+  
+            // Update notifications in local state
+            setNotifications((prevNotifications) => [
+              payload.new,
+              ...prevNotifications,
+            ]);
+  
+            // Increment unread count
+            if (!payload.new.is_read) {
+              setUnreadCount((prevCount) => prevCount + 1);
+            }
+          }
         }
-        if (seller_id) {
-          await sendPushNotification('Seller Notification', message);
-        }
-
-        // Update notifications in local state
-        setNotifications((prevNotifications) => [payload.new, ...prevNotifications]);
-        setUnreadCount((prevCount) => prevCount + 1);
-      })
+      )
       .subscribe();
-
+  
     // Real-time listener for announcements
     const announcementChannel = supabase
       .channel('announcements')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, async (payload) => {
-        const { text } = payload.new;
-        await sendPushNotification('New Announcement', text);
-        setAnnouncements((prevAnnouncements) => [payload.new, ...prevAnnouncements]);
-      })
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'announcements' },
+        async (payload) => {
+          await sendPushNotification('New Announcement', payload.new.text);
+          setAnnouncements((prevAnnouncements) => [
+            payload.new,
+            ...prevAnnouncements,
+          ]);
+        }
+      )
       .subscribe();
-
+  
     // Cleanup listeners on unmount
     return () => {
       supabase.removeChannel(notificationChannel);
       supabase.removeChannel(announcementChannel);
     };
   }, []);
-
-  // Fetch notifications
+  
+  // Function to fetch the current user's ID
+  const getCurrentUserId = async () => {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !sessionData?.session) {
+      throw new Error('User not logged in');
+    }
+    return sessionData.session.user.id;
+  };
+  
+  // Fetch notifications for the current user
   const fetchNotifications = async () => {
     setLoading(true);
     try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !sessionData?.session) {
-        throw new Error('User not logged in');
-      }
-
-      const userId = sessionData.session.user.id;
-      const { data: userNotifications, error: notifError } = await supabase
+      const userId = await getCurrentUserId();
+      const { data: userNotifications, error } = await supabase
         .from('notifications')
         .select('*')
         .eq('recipient_id', userId)
         .order('created_at', { ascending: false });
-
-      if (notifError) {
-        throw new Error('Failed to fetch notifications');
-      }
-
+  
+      if (error) throw new Error('Failed to fetch notifications');
+  
       setNotifications(userNotifications);
-
+  
       // Update unread notifications count
       const unreadNotifications = userNotifications.filter((notif) => !notif.is_read);
       setUnreadCount(unreadNotifications.length);
@@ -103,6 +106,7 @@ const NotificationPage = ({ navigation }) => {
       setLoading(false);
     }
   };
+  
 
   // Fetch announcements
   const fetchAnnouncements = async () => {

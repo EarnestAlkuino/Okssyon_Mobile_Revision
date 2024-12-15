@@ -1,518 +1,359 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Image, ScrollView, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
+  ScrollView,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import Header from '../Components/Header';
-import { supabase } from '../supabase'; // Import Supabase cliento-network';
-import { Ionicons } from '@expo/vector-icons';
- 
- 
- 
- 
-const PostPage = ({ navigation }) => {
+import { supabase } from '../supabase'; 
+import * as FileSystem from 'expo-file-system';
+import { Buffer } from 'buffer';// Adjust the path as needed
+
+const PostPage = () => {
   const [category, setCategory] = useState('');
   const [gender, setGender] = useState('female');
   const [image, setImage] = useState(null);
   const [proofOfOwnership, setProofOfOwnership] = useState(null);
   const [vetCertificate, setVetCertificate] = useState(null);
-  const [auctionStart, setAuctionStart] = useState(new Date());
-  const [auctionEnd, setAuctionEnd] = useState(new Date());
-  const [isAuctionStartPickerVisible, setAuctionStartPickerVisible] = useState(false);
-  const [isAuctionEndPickerVisible, setAuctionEndPickerVisible] = useState(false);
-  const [breedInput, setBreedInput] = useState('');
-  const [ageInput, setAgeInput] = useState('');
-  const [weightInput, setWeightInput] = useState('');
-  const [startingPriceInput, setStartingPriceInput] = useState('');
+  const [breed, setBreed] = useState('');
+  const [age, setAge] = useState('');
+  const [weight, setWeight] = useState('');
+  const [startingPrice, setStartingPrice] = useState('');
   const [location, setLocation] = useState('');
-  const [quantityInput, setQuantityInput] = useState('');
-  const [userId, setUserId] = useState(null);
+  const [quantity, setQuantity] = useState('');
+  const [auctionDuration, setAuctionDuration] = useState({ hours: '0', minutes: '0' });
   const [loading, setLoading] = useState(false);
-  
- 
- 
+  const [ownerId, setOwnerId] = useState(null);
+
   useEffect(() => {
     const fetchUserId = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error } = await supabase.auth.getUser();
       if (user) {
-        setUserId(user.id);
+        setOwnerId(user.id);
       } else {
-        Alert.alert("Error", "User not authenticated");
+        Alert.alert('Error', 'User not authenticated');
       }
     };
     fetchUserId();
   }, []);
- 
+
   const pickImage = async () => {
     try {
-      console.log("Requesting media library permissions...");
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      console.log("Permission result:", permissionResult);
- 
       if (!permissionResult.granted) {
-        alert("Permission to access media library is required!");
+        alert('Permission to access media library is required!');
         return;
       }
- 
-      console.log("Launching image library...");
-      let result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Fallback for compatibility
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
         quality: 1,
       });
- 
-      console.log("Image picker result:", result);
- 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const selectedImageUri = result.assets[0].uri; // Extract the URI of the first asset
-        setImage(selectedImageUri);
-        console.log("Selected image URI:", selectedImageUri);
+
+      if (!result.canceled && result.assets.length > 0) {
+        setImage(result.assets[0].uri);
       } else {
-        console.log("Image picking was canceled or no assets returned.");
+        alert('Image selection was canceled');
       }
     } catch (error) {
-      console.error("Error in pickImage:", error);
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick an image');
     }
   };
- 
- 
- 
- 
- 
+
   const pickDocument = async (setDocument) => {
     try {
-      console.log("Launching document picker...");
+      console.log('Opening Document Picker...');
       const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
-      console.log("Document picker result:", result);
- 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const selectedDocument = result.assets[0]; // Extract the first document
-        setDocument(selectedDocument);
-        console.log("Selected document:", selectedDocument);
+  
+      // Debugging log
+      console.log('DocumentPicker Result:', result);
+  
+      // Check if the result contains assets and the first asset has a URI
+      if (result.assets && result.assets.length > 0 && result.assets[0].uri) {
+        const uri = result.assets[0].uri; // Extract the URI from the first asset
+        setDocument(uri); // Update state with the URI
+        console.log('Document selected: ', uri);
       } else if (result.canceled) {
-        console.log("Document picking was canceled.");
+        console.log('Document selection canceled by the user.');
       } else {
-        console.log("No document selected.");
+        console.log('Invalid document result:', result);
+        Alert.alert('Error', 'Invalid document selection. Please try again.');
       }
     } catch (error) {
-      console.error("Error in pickDocument:", error);
+      console.error('Error picking document:', error);
+      Alert.alert('Error', 'Failed to pick a document. Please try again.');
     }
   };
  
- 
- 
- 
-  const handleAuctionStartConfirm = (date) => {
-    setAuctionStart(date);
-    setAuctionStartPickerVisible(false);
-  };
- 
-  const handleAuctionEndConfirm = (date) => {
-    setAuctionEnd(date);
-    setAuctionEndPickerVisible(false);
-  };
-  const uploadFileToSupabase = async (fileUri, fileName) => {
+
+  const uploadFileToSupabase = async (fileUri, fileName, bucketName = 'oksyon_documents') => {
     try {
-      console.log('Preparing file for upload. File URI:', fileUri);
-     
-      // Read the file as a binary blob
-      const fileBlob = await fetch(fileUri).then((res) => res.blob());
-     
-      console.log('Blob created successfully:', fileBlob);
-     
-      // Upload to Supabase
+      console.log('Starting file upload...');
+      console.log('File URI:', fileUri);
+  
+      // Get file info
+      const fileInfo = await FileSystem.getInfoAsync(fileUri);
+      if (!fileInfo.exists) {
+        throw new Error('File does not exist at the given URI');
+      }
+  
+      // Determine MIME type
+      const mimeType = fileUri.endsWith('.jpg') || fileUri.endsWith('.jpeg')
+        ? 'image/jpeg'
+        : fileUri.endsWith('.png')
+        ? 'image/png'
+        : fileUri.endsWith('.pdf')
+        ? 'application/pdf'
+        : 'application/octet-stream';
+  
+      // Read the file as Base64
+      const fileBase64 = await FileSystem.readAsStringAsync(fileUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+  
+      console.log('File read as Base64 successfully.');
+  
+      // Convert Base64 to a Uint8Array
+      const fileBuffer = Buffer.from(fileBase64, 'base64');
+  
+      // Upload the file
       const { data, error } = await supabase.storage
-        .from('livestock_documents') // Specify the bucket
-        .upload(fileName, fileBlob, {
-          cacheControl: '3600',
+        .from(bucketName)
+        .upload(fileName, fileBuffer, {
+          contentType: mimeType,
           upsert: true,
         });
-     
-      if (error) throw error;
+  
+      if (error) {
+        console.error('Error during Supabase upload:', error);
+        throw error;
+      }
+  
       console.log('Upload successful:', data);
- 
-      // Generate the public URL for the file
-      const { publicURL } = supabase.storage
-        .from('livestock_documents')
-        .getPublicUrl(fileName);
-     
-      console.log('Public URL:', publicURL);
-      return publicURL; // Return the public URL for use in the livestock table
+  
+      // Construct the correct public URL
+      const supabaseUrl = process.env.SUPABASE_URL || 'https://ikvsahtemgarvhkvaftl.supabase.co'; // Replace with your actual Supabase URL
+      const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucketName}/${fileName}`;
+      console.log('Public URL:', publicUrl);
+  
+      return publicUrl;
     } catch (error) {
       console.error('Error uploading file:', error);
       throw error;
     }
   };
- 
+  
   const handleSubmit = async () => {
-    if (!userId) {
-      Alert.alert('Error', 'User ID not found. Please log in again.');
+    if (!category || !gender || !breed || !age || !weight || !startingPrice || !location || !quantity) {
+      Alert.alert('Error', 'All fields are required');
       return;
     }
- 
-    if (!category || !gender || !breedInput || !ageInput || !weightInput || !startingPriceInput || !location || !quantityInput) {
-      Alert.alert('Error', 'All fields are required. Please fill in all details.');
+  
+    const durationHours = parseInt(auctionDuration.hours || '0', 10);
+    const durationMinutes = parseInt(auctionDuration.minutes || '0', 10);
+  
+    if (durationHours <= 0 && durationMinutes <= 0) {
+      Alert.alert('Error', 'Auction duration must be greater than 0');
       return;
     }
- 
-    const now = new Date();
-    if (auctionStart <= now) {
-      Alert.alert('Error', 'Auction start time must be in the future.');
-      return;
-    }
-    if (auctionEnd <= auctionStart) {
-      Alert.alert('Error', 'Auction end time must be greater than auction start time.');
-      return;
-    }
- 
+  
     setLoading(true);
     try {
-      let uploads = {};
- 
-      if (image) {
-        const imageUrl = await uploadFileToSupabase(image, `livestock-image-${Date.now()}.jpg`);
-        uploads.image_url = imageUrl;
-      }
- 
-      if (proofOfOwnership) {
-        const proofUrl = await uploadFileToSupabase(proofOfOwnership, `proof-of-ownership-${Date.now()}.pdf`);
-        uploads.proof_of_ownership_url = proofUrl;
-      }
- 
-      if (vetCertificate) {
-        const vetUrl = await uploadFileToSupabase(vetCertificate, `vet-certificate-${Date.now()}.pdf`);
-        uploads.vet_certificate_url = vetUrl;
-      }
- 
-      const livestockData = {
-        owner_id: userId,
+      const imageUrl = image ? await uploadFileToSupabase(image, `image-${Date.now()}.jpg`) : null;
+      const proofOfOwnershipUrl = proofOfOwnership
+        ? await uploadFileToSupabase(proofOfOwnership, `proof-of-ownership-${Date.now()}.pdf`)
+        : null;
+      const vetCertificateUrl = vetCertificate
+        ? await uploadFileToSupabase(vetCertificate, `vet-certificate-${Date.now()}.pdf`)
+        : null;
+  
+      const now = new Date();
+      const auctionStart = now.toISOString();
+      const auctionEnd = new Date(now.getTime() + durationHours * 3600000 + durationMinutes * 60000).toISOString();
+  
+      const { error } = await supabase.from('livestock').insert({
+        owner_id: ownerId,
         category,
         gender,
-        breed: breedInput,
-        age: parseInt(ageInput),
-        weight: parseFloat(weightInput),
-        starting_price: parseFloat(startingPriceInput),
+        breed,
+        age: parseInt(age, 10),
+        weight: parseFloat(weight),
+        starting_price: parseFloat(startingPrice),
         location,
-        auction_start: auctionStart.toISOString(),
-        auction_end: auctionEnd.toISOString(),
-        quantity: parseInt(quantityInput),
+        quantity: parseInt(quantity, 10),
+        image_url: imageUrl,
+        proof_of_ownership_url: proofOfOwnershipUrl,
+        vet_certificate_url: vetCertificateUrl,
+        auction_start: auctionStart,
+        auction_end: auctionEnd, // Provide calculated value
         status: 'PENDING',
-        ...uploads,
-      };
- 
-      const { error } = await supabase.from('livestock').insert(livestockData);
-      if (error) {
-        throw error;
-      }
- 
-      Alert.alert('Success', 'Your livestock has been submitted for review.');
-      navigation.goBack();
+      });
+  
+      if (error) throw error;
+  
+      Alert.alert('Success', 'Your livestock has been submitted for admin approval.');
     } catch (error) {
-      console.error('Error in handleSubmit:', error);
-      Alert.alert('Error', 'Submission failed. Please try again.');
+      console.error('Error submitting livestock:', error);
+      Alert.alert('Error', 'Failed to post livestock');
     } finally {
       setLoading(false);
     }
   };
- 
- 
- 
- 
- 
+  
+
+
   return (
-    <View style={styles.container}>
-      <Header
-        title="Livestock Upload Form"
-        showBackButton={false}
-        showSettingsButton={false}
-        onBackPress={() => navigation.goBack()}
-      />
- 
-      <ScrollView contentContainerStyle={styles.scrollViewContent}>
-        <View style={styles.formContainer}>
-          <Text style={styles.label}>Category</Text>
-          <View style={styles.inputContainer}>
-            <Picker
-              selectedValue={category}
-              onValueChange={(itemValue) => setCategory(itemValue)}
-              style={styles.picker}
-            >
-              <Picker.Item label="CATTLE" value="Cattle" />
-              <Picker.Item label="HORSE" value="Horse" />
-              <Picker.Item label="CARABAO" value="Carabao" />
-              <Picker.Item label="PIG" value="Pig" />
-              <Picker.Item label="SHEEP" value="Sheep" />
-              <Picker.Item label="GOAT" value="Goat" />
-            </Picker>
-          </View>
- 
-          <Text style={styles.label}>Gender</Text>
-          <View style={styles.inputContainer}>
-            <Picker
-              selectedValue={gender}
-              onValueChange={(itemValue) => setGender(itemValue)}
-              style={styles.picker}
-            >
-              <Picker.Item label="Female" value="female" />
-              <Picker.Item label="Male" value="male" />
-            </Picker>
-          </View>
- 
-          <TouchableOpacity onPress={pickImage} style={styles.uploadButton}>
-            {image ? (
-              <Image source={{ uri: image }} style={styles.imagePreview} />
-            ) : (
-              <View style={styles.iconTextContainer}>
-                <Ionicons name="image-outline" size={40} color="#888" />
-                <Text style={styles.uploadText}>Upload Photos</Text>
-              </View>
-            )}
-          </TouchableOpacity>
- 
-          <View style={styles.doubleInputContainer}>
-            <TextInput
-              placeholder="Breed"
-              style={styles.doubleInput}
-              value={breedInput}
-              onChangeText={setBreedInput}
-            />
-            <TextInput
-              placeholder="Age"
-              style={styles.doubleInput}
-              keyboardType="numeric"
-              value={ageInput}
-              onChangeText={setAgeInput}
-            />
-          </View>
- 
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}
+    >
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
+      >
+        <Text style={styles.label}>Upload Livestock Photo</Text>
+        <TouchableOpacity style={styles.button} onPress={pickImage}>
+          <Text style={styles.buttonText}>Pick Image</Text>
+        </TouchableOpacity>
+        <Text>{image ? `Image selected: ${image}` : 'No image selected'}</Text>
+
+        <Text style={styles.label}>Upload Proof of Ownership</Text>
+        <TouchableOpacity style={styles.button} onPress={() => pickDocument(setProofOfOwnership)}>
+          <Text style={styles.buttonText}>Pick Document</Text>
+        </TouchableOpacity>
+        <Text>{proofOfOwnership ? `Document selected: ${proofOfOwnership}` : 'No document selected'}</Text>
+
+        <Text style={styles.label}>Upload Vet Certification</Text>
+        <TouchableOpacity style={styles.button} onPress={() => pickDocument(setVetCertificate)}>
+          <Text style={styles.buttonText}>Pick Document</Text>
+        </TouchableOpacity>
+        <Text>{vetCertificate ? `Document selected: ${vetCertificate}` : 'No document selected'}</Text>
+
+        <Text style={styles.label}>Category</Text>
+        <Picker selectedValue={category} onValueChange={(itemValue) => setCategory(itemValue)} style={styles.picker}>
+          <Picker.Item label="Cattle" value="cattle" />
+          <Picker.Item label="Goat" value="goat" />
+          <Picker.Item label="Sheep" value="sheep" />
+        </Picker>
+
+        <Text style={styles.label}>Gender</Text>
+        <Picker selectedValue={gender} onValueChange={(itemValue) => setGender(itemValue)} style={styles.picker}>
+          <Picker.Item label="Female" value="female" />
+          <Picker.Item label="Male" value="male" />
+        </Picker>
+
+        <Text style={styles.label}>Breed</Text>
+        <TextInput style={styles.input} value={breed} onChangeText={setBreed} placeholder="Enter breed" />
+
+        <Text style={styles.label}>Age</Text>
+        <TextInput style={styles.input} value={age} onChangeText={setAge} placeholder="Enter age" keyboardType="numeric" />
+
+        <Text style={styles.label}>Weight</Text>
+        <TextInput style={styles.input} value={weight} onChangeText={setWeight} placeholder="Enter weight" keyboardType="numeric" />
+
+        <Text style={styles.label}>Starting Price</Text>
+        <TextInput style={styles.input} value={startingPrice} onChangeText={setStartingPrice} placeholder="Enter starting price" keyboardType="numeric" />
+
+        <Text style={styles.label}>Location</Text>
+        <TextInput style={styles.input} value={location} onChangeText={setLocation} placeholder="Enter location" />
+
+        <Text style={styles.label}>Quantity</Text>
+        <TextInput style={styles.input} value={quantity} onChangeText={setQuantity} placeholder="Enter quantity" keyboardType="numeric" />
+
+        <Text style={styles.label}>Auction Duration (Hours:Minutes)</Text>
+        <View style={styles.durationContainer}>
           <TextInput
-            placeholder="Weight (kg)"
-            style={styles.input}
+            style={[styles.input, styles.durationInput]}
+            value={auctionDuration.hours}
+            onChangeText={(text) => setAuctionDuration({ ...auctionDuration, hours: text.replace(/[^0-9]/g, '') })}
+            placeholder="Hours"
             keyboardType="numeric"
-            value={weightInput}
-            onChangeText={setWeightInput}
           />
+          <Text>:</Text>
           <TextInput
-            placeholder="Starting Price (in PHP)"
-            style={styles.input}
+            style={[styles.input, styles.durationInput]}
+            value={auctionDuration.minutes}
+            onChangeText={(text) => setAuctionDuration({ ...auctionDuration, minutes: text.replace(/[^0-9]/g, '') })}
+            placeholder="Minutes"
             keyboardType="numeric"
-            value={startingPriceInput}
-            onChangeText={setStartingPriceInput}
           />
-          <TextInput
-            placeholder="Location"
-            style={styles.input}
-            value={location}
-            onChangeText={setLocation}
-          />
- 
-          <TextInput
-            placeholder="Quantity"
-            style={styles.input}
-            keyboardType="numeric"
-            value={quantityInput}
-            onChangeText={setQuantityInput}  
-          />
- 
-          <TouchableOpacity onPress={() => setAuctionStartPickerVisible(true)} style={styles.datePickerButton}>
-            <Text style={styles.datePickerText}>Set Auction Start</Text>
-          </TouchableOpacity>
- 
-          <TouchableOpacity onPress={() => setAuctionEndPickerVisible(true)} style={styles.datePickerButton}>
-            <Text style={styles.datePickerText}>Set Auction End</Text>
-          </TouchableOpacity>
- 
- 
-          <View style={styles.rowContainer}>
-            <TouchableOpacity onPress={() => pickDocument(setProofOfOwnership)} style={[styles.documentUploadButton, styles.flexButton]}>
-              <View style={styles.iconTextContainer}>
-                <Ionicons name="document-outline" size={20} color="#888" />
-                <Text style={styles.uploadText}>Upload Proof of Ownership</Text>
-              </View>
-            </TouchableOpacity>
- 
-            <TouchableOpacity onPress={() => pickDocument(setVetCertificate)} style={[styles.documentUploadButton, styles.flexButton]}>
-              <View style={styles.iconTextContainer}>
-                <Ionicons name="document-text-outline" size={20} color="#888" />
-                <Text style={styles.uploadText}>Upload Vet Certificate</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
- 
-          <DateTimePickerModal
-            isVisible={isAuctionStartPickerVisible}
-            mode="datetime"
-            onConfirm={handleAuctionStartConfirm}
-            onCancel={() => setAuctionStartPickerVisible(false)}
-          />
-          <DateTimePickerModal
-            isVisible={isAuctionEndPickerVisible}
-            mode="datetime"
-            onConfirm={handleAuctionEndConfirm}
-            onCancel={() => setAuctionEndPickerVisible(false)}
-          />
-         
-          <TouchableOpacity onPress={handleSubmit} style={styles.submitButton}>
-            <Text style={styles.submitButtonText}>Submit Listing</Text>
-          </TouchableOpacity>
         </View>
+
+        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={loading}>
+          <Text style={styles.submitButtonText}>{loading ? 'Submitting...' : 'Submit'}</Text>
+        </TouchableOpacity>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
- 
+
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    padding: 16,
     backgroundColor: '#fff',
-    paddingBottom: 70,
-  },
-  scrollViewContent: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 30,
-  },
-  formContainer: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 10,
-    marginBottom: 20,
-    borderColor: '#ddd',
   },
   label: {
     fontSize: 16,
-    marginVertical: 5,
-    fontWeight: '600',
+    marginBottom: 8,
   },
-  inputContainer: {
-    backgroundColor: '#fff',
+  button: {
+    backgroundColor: '#3498db',
+    padding: 10,
     borderRadius: 5,
-    borderWidth: 1,
-    borderColor: '#ddd',
     marginVertical: 10,
+  },
+  buttonText: {
+    color: '#fff',
+    textAlign: 'center',
   },
   picker: {
     height: 50,
     width: '100%',
-    borderRadius: 5,
+    marginBottom: 16,
   },
   input: {
-    height: 45,
+    height: 40,
+    borderColor: '#ccc',
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 5,
-    marginVertical: 10,
-    paddingHorizontal: 10,
-    fontSize: 16,
+    paddingLeft: 8,
+    marginBottom: 16,
   },
-  doubleInputContainer: {
+  durationContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginVertical: 10,
   },
-  doubleInput: {
+  durationInput: {
+    height: 40,
     width: '48%',
-    height: 45,
+    borderColor: '#ccc',
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 5,
-    paddingHorizontal: 10,
-    fontSize: 16,
-  },
-  uploadButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 100,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    marginVertical: 20,
-    backgroundColor: '#f9f9f9',
-  },
-  imagePreview: {
-    width: 100,
-    height: 100,
-    resizeMode: 'contain',
-    borderRadius: 10,
-  },
-  iconTextContainer: {
-    alignItems: 'center',
-  },
-  uploadText: {
-    marginTop: 5,
-    fontSize: 14,
-    color: '#555',
-  },
-  datePickerButton: {
-    backgroundColor: '#335441',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  datePickerText: {
-    color: '#fff',
-    fontSize: 16,
+    paddingLeft: 8,
+    marginBottom: 16,
   },
   submitButton: {
-    backgroundColor: '#335441',
+    backgroundColor: '#2ecc71',
     padding: 15,
     borderRadius: 5,
-    alignItems: 'center',
     marginTop: 20,
+    alignItems: 'center',
   },
   submitButtonText: {
     color: '#fff',
-    fontSize: 18,
-  },
-  rowContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 10,
-  },
-  documentUploadButton: {
-    backgroundColor: '#f9f9f9',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 15,
-    borderRadius: 10,
-    width: '48%',
-    alignItems: 'center',
-  },
-  flexButton: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
- 
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 20,
-  },
-  button: {
-    backgroundColor: '#335441',
-    padding: 10,
-    borderRadius: 5,
-    width: '40%',
-    alignItems: 'center',
-  },
-  disabledButton: {
-    backgroundColor: '#ccc',
-  },
-  buttonText: {
-    color: '#fff',
+    textAlign: 'center',
     fontWeight: 'bold',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
 });
- 
- 
+
 export default PostPage;
- 

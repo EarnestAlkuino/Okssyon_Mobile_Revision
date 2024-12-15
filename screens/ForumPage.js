@@ -113,7 +113,7 @@ const ForumPage = ({ route, navigation }) => {
   
     try {
       // Insert the new thread/reply
-      const { data: newThread, error: threadError } = await supabase
+      const { error: threadError } = await supabase
         .from('forum_threads')
         .insert([
           {
@@ -132,59 +132,88 @@ const ForumPage = ({ route, navigation }) => {
       setReplyToThreadId(null);
       fetchThreads(); // Refresh threads after sending
   
-      // Determine if the sender is the seller
+      // Determine if the sender is the seller or a bidder
       const isSeller = userId === livestockDetails.owner_id;
   
-      if (isSeller) {
-        // Notify all bidders when the seller responds
-        const { data: bidders, error: bidderError } = await supabase
-          .from('bids')
-          .select('bidder_id')
-          .eq('livestock_id', item.livestock_id);
+      if (replyToThreadId) {
+        // Notify the original thread creator when a reply is made
+        const originalThread = threads.find((thread) => thread.thread_id === replyToThreadId);
+        if (originalThread) {
+          const { created_by: threadCreatorId } = originalThread;
   
-        if (bidderError) {
-          console.error('Error fetching bidders:', bidderError.message);
-        } else {
-          const notifications = bidders.map((bidder) => ({
-            livestock_id: item.livestock_id,
-            recipient_id: bidder.bidder_id,
-            recipient_role: 'SELLER',
-            message: `The seller has responded to your question about ${livestockDetails.category}.`,
-            is_read: false,
-            notification_type: 'NEW_FORUM_ANSWER',
-          }));
+          // Skip notification if replying to self
+          if (threadCreatorId !== userId) {
+            const { error: replyNotificationError } = await supabase
+              .from('notifications')
+              .insert([
+                {
+                  livestock_id: item.livestock_id,
+                  recipient_id: threadCreatorId,
+                  recipient_role: isSeller ? 'BIDDER' : 'SELLER', // Notify opposite role
+                  message: `${isSeller ? 'The seller' : 'A bidder'} has replied to your message in the forum about ${livestockDetails.category}.`,
+                  is_read: false,
+                  notification_type: 'NEW_FORUM_ANSWER',
+                },
+              ]);
   
-          const { error: notificationError } = await supabase
-            .from('notifications')
-            .insert(notifications);
-  
-          if (notificationError) {
-            console.error('Error sending notifications to bidders:', notificationError.message);
+            if (replyNotificationError) {
+              console.error('Error sending reply notification:', replyNotificationError.message);
+            }
           }
         }
       } else {
-        // Notify the seller when a bidder asks a question
-        const { error: sellerNotificationError } = await supabase
-          .from('notifications')
-          .insert([
-            {
+        // Notify all bidders when the seller starts a new discussion
+        if (isSeller) {
+          const { data: bidders, error: bidderError } = await supabase
+            .from('bids')
+            .select('bidder_id')
+            .eq('livestock_id', item.livestock_id);
+  
+          if (bidderError) {
+            console.error('Error fetching bidders:', bidderError.message);
+          } else {
+            const notifications = bidders.map((bidder) => ({
               livestock_id: item.livestock_id,
-              recipient_id: livestockDetails.owner_id,
+              recipient_id: bidder.bidder_id,
               recipient_role: 'BIDDER',
-              message: `A bidder has posted a question about your ${livestockDetails.category}.`,
+              message: `The seller has started a new discussion about ${livestockDetails.category}.`,
               is_read: false,
               notification_type: 'NEW_FORUM_QUESTION',
-            },
-          ]);
+            }));
   
-        if (sellerNotificationError) {
-          console.error('Error sending notification to seller:', sellerNotificationError.message);
+            const { error: discussionNotificationError } = await supabase
+              .from('notifications')
+              .insert(notifications);
+  
+            if (discussionNotificationError) {
+              console.error('Error sending discussion notifications:', discussionNotificationError.message);
+            }
+          }
+        } else {
+          // Notify the seller when a bidder starts a new discussion
+          const { error: sellerNotificationError } = await supabase
+            .from('notifications')
+            .insert([
+              {
+                livestock_id: item.livestock_id,
+                recipient_id: livestockDetails.owner_id,
+                recipient_role: 'SELLER',
+                message: `A bidder has started a new discussion about your ${livestockDetails.category}.`,
+                is_read: false,
+                notification_type: 'NEW_FORUM_QUESTION',
+              },
+            ]);
+  
+          if (sellerNotificationError) {
+            console.error('Error sending notification to seller:', sellerNotificationError.message);
+          }
         }
       }
     } catch (error) {
       console.error('Error sending message or notifications:', error.message);
     }
   };
+  
   
 
   const toggleThreadExpansion = (threadId) => {

@@ -6,18 +6,22 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../supabase';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const WinnerConfirmationPage = ({ route, navigation }) => {
   const { livestockId } = route.params;
   const [auctionResult, setAuctionResult] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isConfirmed, setIsConfirmed] = useState(false);
 
   useEffect(() => {
     const fetchAuctionResult = async () => {
       try {
+        // Fetch the auction result and confirmation status
         const { data, error } = await supabase
           .from('bids')
           .select(`
@@ -40,6 +44,19 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
           console.warn('No auction results found for the provided livestockId.');
         } else {
           setAuctionResult(data);
+
+          // Check the confirmation status
+          const { data: confirmationData, error: confirmationError } = await supabase
+            .from('auction_results')
+            .select('confirmation_status')
+            .eq('livestock_id', livestockId)
+            .single();
+
+          if (confirmationError) {
+            console.error('Error checking confirmation status:', confirmationError);
+          } else if (confirmationData?.confirmation_status === 'CONFIRMED') {
+            setIsConfirmed(true);
+          }
         }
       } catch (error) {
         console.error('Unexpected error fetching auction result:', error);
@@ -56,7 +73,12 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
       Alert.alert('Error', 'Unable to proceed. Auction details are missing.');
       return;
     }
-  
+
+    if (isConfirmed) {
+      Alert.alert('Already Confirmed', 'This sale has already been confirmed.');
+      return;
+    }
+
     Alert.alert(
       'Confirm Sale',
       'Are you sure you want to confirm this sale?',
@@ -71,13 +93,13 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
                 .from('livestock')
                 .update({ status: 'SOLD' })
                 .eq('livestock_id', livestockId);
-  
+
               if (livestockError) {
                 Alert.alert('Error', 'Failed to update livestock status. Please try again.');
                 console.error('Error updating livestock status:', livestockError);
                 return;
               }
-  
+
               // Update the auction result's confirmation status and timestamp
               const { error: auctionError } = await supabase
                 .from('auction_results')
@@ -86,15 +108,20 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
                   confirmation_at: new Date().toISOString(),
                 })
                 .eq('livestock_id', livestockId);
-  
+
               if (auctionError) {
                 Alert.alert('Error', 'Failed to update confirmation status. Please try again.');
                 console.error('Error updating confirmation status:', auctionError);
                 return;
               }
-  
+
               Alert.alert('Success', 'The sale has been confirmed successfully.');
-              navigation.navigate('BidderTransactionPage', { auctionResult }); // Redirect to BidderTransactionPage
+
+              // Update local state
+              setIsConfirmed(true);
+
+              // Navigate to BidderTransactionPage with the livestockId
+              navigation.navigate('BidderTransactionPage', { livestockId });
             } catch (error) {
               console.error('Unexpected error:', error);
               Alert.alert('Error', 'An unexpected error occurred. Please try again.');
@@ -104,8 +131,6 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
       ]
     );
   };
-  
-  
 
   if (loading) {
     return (
@@ -125,49 +150,60 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={["#14532d", "#257446", "#A7D4A9"]}
+      style={{ flex: 1 }}
+    >
       <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-        <Ionicons name="arrow-back" size={24} color="#257446" />
+        <Ionicons name="arrow-back" size={24} color="#ffffff" />
       </TouchableOpacity>
 
       <View style={styles.header}>
-        <Text style={styles.congratulationsText}> Congratulations! </Text>
+        <Text style={styles.congratulationsText}>Congratulations!</Text>
         <Text style={styles.winningText}>
           You have won the bid for {auctionResult.livestock?.category || 'this item'}.
         </Text>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.detailTitle}>Winning Price</Text>
+      <View style={styles.cardWithImage}>
+        <Text style={styles.highlightedPrice}>Winning Price</Text>
         <Text style={styles.priceText}>₱{auctionResult.bid_amount.toLocaleString()}</Text>
 
-        <Text style={styles.detailTitle}>Seller's Information</Text>
-        <Text style={styles.detailText}>
-          <Text style={styles.label}>Seller:</Text> {auctionResult.livestock?.profiles?.full_name || 'Unknown'}
-        </Text>
-        <Text style={styles.detailText}>
-          <Text style={styles.label}>Location:</Text> {auctionResult.livestock?.location || 'N/A'}
-        </Text>
+        <View style={styles.divider} />
+
+        <View style={styles.sellerInfoContainerRow}>
+          <Ionicons name="person-circle" size={60} color="#ccc" style={styles.profileIconLeft} />
+          <View style={styles.sellerDetailsTextContainer}>
+            <Text style={styles.detailTitle}>Seller's Information</Text>
+            <Text style={styles.detailText}>
+              <Text style={styles.label}>Seller:</Text> {auctionResult.livestock?.profiles?.full_name || 'Unknown'}
+            </Text>
+            <Text style={styles.detailText}>
+              <Text style={styles.label}>Location:</Text> {auctionResult.livestock?.location || 'N/A'}
+            </Text>
+          </View>
+        </View>
       </View>
 
       <View style={styles.buttonContainer}>
         <TouchableOpacity
-          style={styles.confirmButton}
+          style={[
+            styles.confirmButton,
+            isConfirmed && { backgroundColor: '#ccc' }, // Disable style when already confirmed
+          ]}
           onPress={handleConfirm}
+          disabled={isConfirmed} // Disable button after confirmation
         >
-          <Text style={styles.confirmButtonText}>Confirm</Text>
+          <Text style={styles.confirmButtonText}>
+            {isConfirmed ? 'Confirmed' : 'Confirm'}
+          </Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f7f9fc',
-    padding: 20,
-  },
   backButton: {
     position: 'absolute',
     top: 40,
@@ -178,88 +214,114 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#f6f6f6',
   },
   loadingText: {
     fontSize: 18,
-    color: '#333',
+    color: '#14532d',
     marginTop: 10,
+    fontWeight: '500',
   },
   errorContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#f6f6f6',
   },
   errorText: {
     fontSize: 18,
-    color: 'red',
+    color: '#f44336',
+    fontWeight: '600',
+  },
+  divider: {
+    height: 2,
+    backgroundColor: '#ddd',
+    marginVertical: 15,
   },
   header: {
-    marginTop: 80,
+    marginTop: 100,
     alignItems: 'center',
     marginBottom: 30,
+    paddingHorizontal: 20,
   },
   congratulationsText: {
-    fontSize: 26,
+    fontSize: 24,
+    color: '#fff',
     fontWeight: 'bold',
-    color: '#257446',
-    textAlign: 'center',
+    marginBottom: 10,
   },
   winningText: {
     fontSize: 18,
-    color: '#555',
+    color: '#fff',
     textAlign: 'center',
-    marginTop: 10,
+    marginBottom: -10,
   },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 20,
+  cardWithImage: {
+    backgroundColor: '#f8f8f8',
+    padding: 40,
+    margin: 20,
+    borderRadius: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    marginBottom: 20,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  detailTitle: {
+  highlightedPrice: {
     fontSize: 16,
+    color: '#14532d',
     fontWeight: 'bold',
-    color: '#257446',
-    marginTop: 15,
+    marginBottom: 10,
   },
   priceText: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 24,
     color: '#257446',
-    textAlign: 'center',
-    marginVertical: 10,
+    fontWeight: '700',
+    marginBottom: 20,
+  },
+  sellerInfoContainerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  profileIconLeft: {
+    width: 60,
+    height: 60,
+    marginRight: 15,
+
+
+  },
+  sellerDetailsTextContainer: {
+    flex: 1,
+  },
+  detailTitle: {
+    fontSize: 18,
+    color: '#257446',
+    fontWeight: 'bold',
+    marginBottom: 5,
   },
   detailText: {
     fontSize: 16,
-    marginVertical: 5,
-    color: '#555',
+    color: '#333',
+    marginBottom: 5,
   },
   label: {
     fontWeight: 'bold',
-    color: '#333',
   },
   buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
     marginTop: 20,
+    alignItems: 'center',
   },
   confirmButton: {
-    backgroundColor: '#257446',
+    backgroundColor: '#14532d',
     paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingHorizontal: 120,
+    borderRadius: 10,
     alignItems: 'center',
-    flex: 1,
-    marginHorizontal: 5,
+    marginTop: 20,
   },
   confirmButtonText: {
-    color: '#fff',
-    fontSize: 16,
+    color: '#ffffff',
+    fontSize: 18,
     fontWeight: 'bold',
   },
 });

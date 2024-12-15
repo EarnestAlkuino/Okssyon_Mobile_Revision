@@ -1,129 +1,204 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { supabase } from '../supabase';
 
-const BidderTransactionPage = ({ navigation }) => {
-  // Static transaction data
-  const [transactionSteps, setTransactionSteps] = useState([
-    { id: 1, name: 'Payment', description: 'paid', completed: true },
-    { id: 2, name: 'Transfer of Ownership', description: 'Download Ownership Form', completed: false },
-    { id: 3, name: 'Transfer of Vet Certificate', description: 'Download Vet Certificate', completed: false },
-    { id: 4, name: 'Shipping Permit', description: 'Download Shipping permit', completed: false },
-    { id: 5, name: 'Successfully Auctioned', description: '', completed: false },
-    { id: 6, name: 'Rate Auctioneer', description: 'Proceed to rate form (optional)', completed: false },
-  ]);
+const BidderTransactionPage = ({ route, navigation }) => {
+  const { livestockId } = route.params || {};
+  const [transactionSteps, setTransactionSteps] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Function to handle when a step is clicked (if needed)
-  const handleStepClick = (step) => {
-    if (!step.completed) {
-      alert(`Please complete the previous steps to proceed with ${step.name}`);
+  const isValidUUID = (id) =>
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[4-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(id);
+
+  useEffect(() => {
+    if (!livestockId || !isValidUUID(livestockId)) {
+      console.error('Invalid or missing livestockId:', livestockId);
+      Alert.alert('Error', 'Invalid livestock ID. Please try again.');
+      navigation.goBack();
+      return;
     }
-  };
+
+    const fetchTransactionData = async () => {
+      setLoading(true);
+
+      try {
+        const { data: auctionResult, error: resultError } = await supabase
+          .from('auction_results')
+          .select('confirmation_status, bid_amount')
+          .eq('livestock_id', livestockId)
+          .single();
+
+        if (resultError || !auctionResult) {
+          console.error('Error fetching auction result:', resultError);
+          Alert.alert('Error', 'Failed to load auction result data. Please try again.');
+          return;
+        }
+
+        const { confirmation_status, bid_amount } = auctionResult;
+
+        const steps =
+          confirmation_status === 'CONFIRMED'
+            ? [
+                {
+                  id: '1',
+                  name: 'Auction Confirmed',
+                  price: `Winning Price: ₱${bid_amount}`,
+                  status: 'completed',
+                },
+              ]
+            : [
+                {
+                  id: '1',
+                  name: 'Awaiting Auction Confirmation',
+                  price: null,
+                  status: 'pending',
+                },
+              ];
+
+        setTransactionSteps(steps);
+      } catch (error) {
+        console.error('Unexpected error fetching transaction data:', error.message);
+        Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTransactionData();
+  }, [livestockId]);
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#257446" />
+        <Text style={styles.loadingText}>Loading transaction steps...</Text>
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerContainer}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+    <LinearGradient colors={['#f0fdf4', '#e6f7ed']} style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#257446" />
         </TouchableOpacity>
-        <Text style={styles.headerText}>Transaction</Text>
+        <Text style={styles.headerText}>Auction Transaction</Text>
       </View>
 
+      {/* Content */}
       <View style={styles.content}>
-        <Text style={styles.sectionTitle}>Auction Transaction</Text>
-        {transactionSteps.map((step, index) => (
-          <View key={step.id} style={styles.stepContainer}>
-            <View style={styles.stepIndicator}>
-              <View style={[styles.circle, step.completed && styles.completedCircle]} />
+        {transactionSteps.map((step) => (
+          <View key={step.id} style={styles.stepWrapper}>
+            {/* Circle Indicator */}
+            <View
+              style={[
+                styles.stepCircle,
+                step.status === 'completed'
+                  ? styles.completedStepCircle
+                  : styles.pendingStepCircle,
+              ]}
+            >
+              {step.status === 'completed' && (
+                <Ionicons name="checkmark" size={16} color="#fff" />
+              )}
             </View>
+
+            {/* Step Details */}
             <View style={styles.stepDetails}>
-              <Text style={[styles.stepName, step.completed && styles.completedText]}>
+              <Text
+                style={[
+                  styles.stepTitle,
+                  step.status === 'completed' && styles.completedText,
+                ]}
+              >
                 {step.name}
               </Text>
-              {step.description ? (
-                <TouchableOpacity onPress={() => handleStepClick(step)}>
-                  <Text style={styles.stepDescription}>
-                    {step.completed ? step.description : `⬇ ${step.description}`}
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
+              {step.price && <Text style={styles.priceText}>{step.price}</Text>}
             </View>
           </View>
         ))}
       </View>
-    </View>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f7f9fc',
   },
-  headerContainer: {
-    backgroundColor: '#257446',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+  header: {
+    paddingHorizontal: 16,
+    paddingVertical: 70,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  backButton: {
+    marginRight: 16,
   },
   headerText: {
-    color: '#fff',
-    fontSize: 20,
+    fontSize: 38,
+    color: '#257446',
     fontWeight: 'bold',
-    marginLeft: 10,
   },
   content: {
-    padding: 20,
+    paddingHorizontal: 30,
+    marginTop: -10,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#257446',
-  },
-  stepContainer: {
+  stepWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 20,
+    marginBottom: 30,
   },
-  stepIndicator: {
-    marginRight: 10,
+  stepCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
-  circle: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#ccc',
-    backgroundColor: '#fff',
-  },
-  completedCircle: {
-    borderColor: '#257446',
+  completedStepCircle: {
     backgroundColor: '#257446',
+  },
+  pendingStepCircle: {
+    backgroundColor: '#ddd',
   },
   stepDetails: {
     flex: 1,
   },
-  stepName: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  stepTitle: {
+    fontSize: 20,
     color: '#555',
   },
   completedText: {
+    fontWeight: 'bold',
     color: '#257446',
   },
-  stepDescription: {
-    fontSize: 14,
+  priceText: {
+    marginTop: -1,
+    fontSize: 15,
+    color: '#257446',
+    fontWeight: '400',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
     color: '#555',
-    textDecorationLine: 'underline',
-    marginTop: 2,
   },
 });
 
