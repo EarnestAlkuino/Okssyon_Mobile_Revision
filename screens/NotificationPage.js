@@ -188,44 +188,19 @@ const NotificationPage = ({ navigation }) => {
       setUnreadCount((prevCount) => prevCount - 1);
     }
   
-    // Navigate based on notification type
-    if (item.notification_type === 'WINNER') {
-      // Navigate to the BidderTransactionPage when the user is the winner
-      navigation.navigate('BidderTransactionPage', {
-        livestockId: item.livestock_id,
-      });
-    } else if (
-      item.notification_type === 'NEW_FORUM_QUESTION' ||
-      item.notification_type === 'NEW_FORUM_ANSWER'
-    ) {
-      // Fetch the `owner_id` if the recipient is a seller
-      let ownerId = item.user_id; // Default to user_id passed in the notification
-  
-      if (item.recipient_role === 'SELLER') {
-        try {
-          const { data: livestockData, error } = await supabase
-            .from('livestock')
-            .select('owner_id')
-            .eq('livestock_id', item.livestock_id)
-            .single();
-  
-          if (!error && livestockData) {
-            ownerId = livestockData.owner_id;
-          }
-        } catch (fetchError) {
-          console.error('Error fetching livestock data:', fetchError.message);
-        }
-      }
-  
-      // Navigate to the ForumPage
-      navigation.navigate('ForumPage', {
-        item: {
-          livestock_id: item.livestock_id,
-          category: item.category || 'Unknown',
-          created_by: item.created_by,
-        },
-        userId: ownerId,
-      });
+    // Handle notification types
+    if (item.notification_type === 'AUCTION_APPROVED') {
+      // Navigate to SellerTransactionPage for approved auctions
+      navigation.navigate('SellerTransactionPage', { livestockId: item.livestock_id });
+    } else if (item.notification_type === 'AUCTION_DISAPPROVED') {
+      // Notify seller why the auction was disapproved
+      Alert.alert(
+        'Auction Disapproved',
+        'Your auction has been disapproved. Please contact support for more details.',
+        [{ text: 'OK' }]
+      );
+    } else if (item.notification_type === 'WINNER') {
+      navigation.navigate('BidderTransactionPage', { livestockId: item.livestock_id });
     } else if (item.notification_type === 'AUCTION_END') {
       if (item.recipient_role === 'BIDDER') {
         navigation.navigate('WinnerConfirmationPage', { livestockId: item.livestock_id });
@@ -233,11 +208,9 @@ const NotificationPage = ({ navigation }) => {
         navigation.navigate('SellerTransactionPage', { livestockId: item.livestock_id });
       }
     } else if (item.livestock_id) {
-      // Default navigation to the LivestockAuctionDetailPage
       navigation.navigate('LivestockAuctionDetailPage', { itemId: item.livestock_id });
     }
   };
-  
   
   
   
