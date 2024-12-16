@@ -172,6 +172,20 @@ const PostPage = () => {
   
     setLoading(true);
     try {
+      // Current time in the Philippines timezone
+      const nowUTC = new Date();
+      const timezoneOffset = 8 * 60 * 60 * 1000; // UTC+8 in milliseconds
+      const nowPH = new Date(nowUTC.getTime() + timezoneOffset);
+  
+      // Auction end time
+      const auctionEndPH = new Date(
+        nowPH.getTime() +
+          durationDays * 24 * 60 * 60 * 1000 +
+          durationHours * 60 * 60 * 1000 +
+          durationMinutes * 60 * 1000
+      );
+  
+      // Upload files if they exist
       const imageUrl = image ? await uploadFileToSupabase(image, `image-${Date.now()}.jpg`) : null;
       const proofOfOwnershipUrl = proofOfOwnership
         ? await uploadFileToSupabase(proofOfOwnership, `proof-of-ownership-${Date.now()}.pdf`)
@@ -180,14 +194,7 @@ const PostPage = () => {
         ? await uploadFileToSupabase(vetCertificate, `vet-certificate-${Date.now()}.pdf`)
         : null;
   
-      const nowUTC = new Date(); // Explicit UTC
-      const auctionEnd = new Date(
-        nowUTC.getTime() +
-          durationDays * 24 * 60 * 60 * 1000 +
-          durationHours * 60 * 60 * 1000 +
-          durationMinutes * 60 * 1000
-      );
-  
+      // Insert into the database
       const { error } = await supabase.from('livestock').insert({
         owner_id: ownerId,
         category,
@@ -201,8 +208,8 @@ const PostPage = () => {
         image_url: imageUrl,
         proof_of_ownership_url: proofOfOwnershipUrl,
         vet_certificate_url: vetCertificateUrl,
-        auction_start: nowUTC.toISOString(),
-        auction_end: auctionEnd.toISOString(),
+        auction_start: nowPH.toISOString(),
+        auction_end: auctionEndPH.toISOString(),
         status: 'PENDING',
         bidding_duration: `${durationDays} days ${durationHours} hours ${durationMinutes} minutes`,
       });
@@ -217,6 +224,7 @@ const PostPage = () => {
       setLoading(false);
     }
   };
+  
   
 
   return (

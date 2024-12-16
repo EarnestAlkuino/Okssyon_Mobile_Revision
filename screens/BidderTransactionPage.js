@@ -29,41 +29,67 @@ const BidderTransactionPage = ({ route, navigation }) => {
 
     const fetchTransactionData = async () => {
       setLoading(true);
-
+    
       try {
-        const { data: auctionResult, error: resultError } = await supabase
-          .from('auction_results')
-          .select('confirmation_status, bid_amount')
+        // Fetch livestock details, including status and winner_id
+        const { data: livestock, error } = await supabase
+          .from('livestock')
+          .select('status, starting_price, winner_id')
           .eq('livestock_id', livestockId)
           .single();
-
-        if (resultError || !auctionResult) {
-          console.error('Error fetching auction result:', resultError);
-          Alert.alert('Error', 'Failed to load auction result data. Please try again.');
+    
+        if (error || !livestock) {
+          console.error('Error fetching livestock data:', error);
+          Alert.alert('Error', 'Failed to load transaction data. Please try again.');
           return;
         }
-
-        const { confirmation_status, bid_amount } = auctionResult;
-
-        const steps =
-          confirmation_status === 'CONFIRMED'
-            ? [
-                {
-                  id: '1',
-                  name: 'Auction Confirmed',
-                  price: `Winning Price: ₱${bid_amount}`,
-                  status: 'completed',
-                },
-              ]
-            : [
-                {
-                  id: '1',
-                  name: 'Awaiting Auction Confirmation',
-                  price: null,
-                  status: 'pending',
-                },
-              ];
-
+    
+        const steps = [];
+    
+        // Step 1: Auction Confirmation
+        if (livestock.status === 'AUCTION_ENDED' || livestock.status === 'SOLD') {
+          steps.push({
+            id: '1',
+            name: 'Auction Confirmed',
+            price: `Winning Price: ₱${livestock.starting_price || 'N/A'}`,
+            status: 'completed',
+          });
+        } else {
+          steps.push({
+            id: '1',
+            name: 'Awaiting Auction Confirmation',
+            price: null,
+            status: 'pending',
+          });
+        }
+    
+        // Step 2: Livestock Sold
+        if (livestock.status === 'SOLD') {
+          steps.push({
+            id: '2',
+            name: 'Livestock Sold',
+            price: null,
+            status: 'completed',
+          });
+    
+          // Send notification to the winning bidder
+          const { error: notificationError } = await supabase.from('notifications').insert({
+            recipient_id: livestock.winner_id, // ID of the winning bidder
+            recipient_role: 'BIDDER',
+            livestock_id: livestockId,
+            message: `Congratulations! You have won the auction for the livestock with a final price of ₱${livestock.starting_price}.`,
+            notification_type: 'WINNER',
+            is_read: false,
+            created_at: new Date().toISOString(),
+          });
+    
+          if (notificationError) {
+            console.error('Error sending notification:', notificationError.message);
+          } else {
+            console.log('Notification sent to the winning bidder.');
+          }
+        }
+    
         setTransactionSteps(steps);
       } catch (error) {
         console.error('Unexpected error fetching transaction data:', error.message);
@@ -72,7 +98,8 @@ const BidderTransactionPage = ({ route, navigation }) => {
         setLoading(false);
       }
     };
-
+    
+    
     fetchTransactionData();
   }, [livestockId]);
 

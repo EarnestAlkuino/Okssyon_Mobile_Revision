@@ -47,7 +47,6 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
 
           // Check the confirmation status
           const { data: confirmationData, error: confirmationError } = await supabase
-            .from('auction_results')
             .select('confirmation_status')
             .eq('livestock_id', livestockId)
             .single();
@@ -73,12 +72,12 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
       Alert.alert('Error', 'Unable to proceed. Auction details are missing.');
       return;
     }
-
+  
     if (isConfirmed) {
       Alert.alert('Already Confirmed', 'This sale has already been confirmed.');
       return;
     }
-
+  
     Alert.alert(
       'Confirm Sale',
       'Are you sure you want to confirm this sale?',
@@ -93,33 +92,34 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
                 .from('livestock')
                 .update({ status: 'SOLD' })
                 .eq('livestock_id', livestockId);
-
+  
               if (livestockError) {
                 Alert.alert('Error', 'Failed to update livestock status. Please try again.');
                 console.error('Error updating livestock status:', livestockError);
                 return;
               }
-
-              // Update the auction result's confirmation status and timestamp
-              const { error: auctionError } = await supabase
-                .from('auction_results')
-                .update({
-                  confirmation_status: 'CONFIRMED',
-                  confirmation_at: new Date().toISOString(),
-                })
-                .eq('livestock_id', livestockId);
-
-              if (auctionError) {
-                Alert.alert('Error', 'Failed to update confirmation status. Please try again.');
-                console.error('Error updating confirmation status:', auctionError);
-                return;
+  
+             
+              // Send a notification to the user who confirmed
+              const { error: notificationError } = await supabase.from('notifications').insert({
+                recipient_id: auctionResult.profiles?.id, // User ID of the bidder
+                recipient_role: 'SELLER', // Role of the confirming user
+                livestock_id: livestockId,
+                message: `The sale for ${auctionResult.livestock?.category || 'the item'} has been confirmed successfully.`,
+                is_read: false,
+                notification_type: 'CONFIRMATION',
+                created_at: new Date().toISOString(),
+              });
+  
+              if (notificationError) {
+                console.error('Error sending notification:', notificationError);
               }
-
+  
               Alert.alert('Success', 'The sale has been confirmed successfully.');
-
+  
               // Update local state
               setIsConfirmed(true);
-
+  
               // Navigate to BidderTransactionPage with the livestockId
               navigation.navigate('BidderTransactionPage', { livestockId });
             } catch (error) {
@@ -131,6 +131,7 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
       ]
     );
   };
+  
 
   if (loading) {
     return (
@@ -327,3 +328,6 @@ const styles = StyleSheet.create({
 });
 
 export default WinnerConfirmationPage;
+
+
+

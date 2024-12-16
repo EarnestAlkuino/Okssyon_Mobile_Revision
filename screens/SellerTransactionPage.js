@@ -29,54 +29,59 @@ const SellerTransactionPage = ({ route, navigation }) => {
     const fetchTransactionData = async () => {
       setLoading(true);
       try {
+        // Fetch livestock details
         const { data: livestockData, error: livestockError } = await supabase
           .from('livestock')
           .select('status, winner_id')
           .eq('livestock_id', livestockId)
           .single();
-
+    
         if (livestockError || !livestockData) {
           Alert.alert('Error', 'Failed to load livestock data. Please try again.');
           return;
         }
-
+    
         const { status, winner_id } = livestockData;
         const steps = [];
-
+    
+        // Step 1: Livestock Posted (always completed)
         steps.push({
           id: '1',
           name: 'Livestock Posted',
           status: 'completed',
         });
-
-        steps.push({
-          id: '2',
-          name: 'Auction in Progress',
-          status: status === 'AUCTION_ENDED' || winner_id ? 'completed' : 'pending',
-        });
-
-        if (winner_id) {
+    
+        // Step 2: Check for SOLD status
+        if (status === 'SOLD' && winner_id) {
+          // Fetch the winner's name from profiles table
           const { data: bidderData, error: bidderError } = await supabase
             .from('profiles')
             .select('name')
             .eq('id', winner_id)
             .single();
-
+    
           if (!bidderError && bidderData) {
             steps.push({
-              id: '3',
-              name: `Winning Bidder: ${bidderData.name}`,
+              id: '2',
+              name: `Winning Confirmation: ${bidderData.name}`,
               status: 'completed',
             });
           } else {
             steps.push({
-              id: '3',
-              name: 'Awaiting Winner Confirmation',
-              status: 'pending',
+              id: '2',
+              name: 'Winning Confirmation: Unknown Winner',
+              status: 'completed',
             });
           }
+        } else if (status === 'AUCTION_ENDED') {
+          // Fallback for auction ended but not yet confirmed as SOLD
+          steps.push({
+            id: '2',
+            name: 'Awaiting Winner Confirmation',
+            status: 'pending',
+          });
         }
-
+    
         setTransactionSteps(steps);
       } catch (error) {
         Alert.alert('Error', 'An unexpected error occurred. Please try again.');
@@ -85,7 +90,8 @@ const SellerTransactionPage = ({ route, navigation }) => {
         setLoading(false);
       }
     };
-
+    
+    
     fetchTransactionData();
   }, [livestockId]);
 
