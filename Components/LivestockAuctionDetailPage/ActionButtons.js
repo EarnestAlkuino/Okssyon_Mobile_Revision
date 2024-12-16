@@ -2,11 +2,10 @@ import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
-const ActionButtons = ({ isCreator, handleAsk, handleEdit, handleDelete, setModalVisible }) => {
+const ActionButtons = ({ isCreator, handleAsk, handleBid, handleEdit, handleDelete }) => {
   return (
     <View style={styles.buttonContainer}>
       {isCreator ? (
-        // Show these buttons if the user is the owner of the auction
         <>
           <TouchableOpacity style={styles.editButton} onPress={handleEdit}>
             <Icon name="pencil-outline" size={18} color="#FFF" />
@@ -18,13 +17,12 @@ const ActionButtons = ({ isCreator, handleAsk, handleEdit, handleDelete, setModa
           </TouchableOpacity>
         </>
       ) : (
-        // Show these buttons for bidders/other users
         <>
           <TouchableOpacity style={styles.askButton} onPress={handleAsk}>
             <Icon name="forum-outline" size={18} color="#2C3E50" />
             <Text style={styles.askButtonText}>Ask a Question</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.bidButton} onPress={() => setModalVisible(true)}>
+          <TouchableOpacity style={styles.bidButton} onPress={handleBid}>
             <Text style={styles.bidButtonText}>Place a Bid</Text>
           </TouchableOpacity>
         </>

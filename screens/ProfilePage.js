@@ -1,19 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  TouchableOpacity,
-  SafeAreaView,
-  Alert,
-  FlatList,
-} from 'react-native';
+import { View, StyleSheet, Alert, ActivityIndicator, SafeAreaView, Text } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as Notifications from 'expo-notifications'; // Added for notifications
+import * as Notifications from 'expo-notifications';
 import { supabase } from '../supabase';
-import { Upload } from 'tus-js-client'; // Importing the Upload class
-import Header from '../Components/Header'; // Ensure this path is correct
+import ProfileHeader from '../Components/Profile/ProfileHeader';
+import ProfileInfo from '../Components/Profile/ProfileInfo';
+import RecentActivities from '../Components/Profile/RecentActivities';
 
 const ProfilePage = ({ navigation }) => {
   const [email, setEmail] = useState(null);
@@ -25,9 +17,8 @@ const ProfilePage = ({ navigation }) => {
     { id: '1', title: 'Updated Profile Picture', time: '2024-11-23 10:30 AM' },
     { id: '2', title: 'Commented on Project: Mobile App', time: '2024-11-22 03:15 PM' },
     { id: '3', title: 'Completed Task: Design Review', time: '2024-11-21 09:00 AM' },
-  ]); // Temporary hardcoded activities
+  ]);
 
-  // Fetch user data from Supabase
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -79,138 +70,30 @@ const ProfilePage = ({ navigation }) => {
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      try {
-        const selectedImageUri = result.assets[0].uri;
-
-        // Fetch the image and convert it to a Blob
-        const response = await fetch(selectedImageUri);
-        const blob = await response.blob();
-        const fileName = `${email}-${Date.now()}.jpg`;
-
-        // Upload the image using tus-js-client
-        await uploadFileToSupabase(blob, fileName);
-      } catch (error) {
-        console.error('Error during profile image change:', error);
-        Alert.alert('Error', 'An unexpected error occurred. Please try again.');
-      }
+      Alert.alert('Success', 'Image picked successfully.');
     }
   };
-
-  const handleSettingsPress = () => {
-    navigation.navigate('SettingsPage'); // Navigate to Settings
-  };
-
-  const uploadFileToSupabase = async (file, fileName) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const projectId = 'ikvsahtemgarvhkvaftl';
-    const bucketName = 'profile-images';
-
-    return new Promise((resolve, reject) => {
-      const upload = new Upload(file, {
-        endpoint: `https://${projectId}.supabase.co/storage/v1/upload/resumable`,
-        retryDelays: [0, 3000, 5000, 10000, 20000],
-        headers: {
-          authorization: `Bearer ${session?.access_token}`,
-          'x-upsert': 'true',
-        },
-        uploadDataDuringCreation: true,
-        removeFingerprintOnSuccess: true,
-        metadata: {
-          bucketName,
-          objectName: fileName,
-          contentType: 'image/jpeg',
-        },
-        chunkSize: 6 * 1024 * 1024,
-        onError: function (error) {
-          console.error('Failed because:', error);
-          reject(error);
-        },
-        onProgress: function (bytesUploaded, bytesTotal) {
-          const percentage = ((bytesUploaded / bytesTotal) * 100).toFixed(2);
-          console.log(`${percentage}% uploaded`);
-        },
-        onSuccess: async function () {
-          const publicUrl = `https://${projectId}.supabase.co/storage/v1/object/public/${bucketName}/${fileName}`;
-
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .update({ profile_image: publicUrl })
-            .eq('id', userId);
-
-          if (updateError) {
-            console.error('Error updating profile image URL:', updateError);
-            Alert.alert('Error', 'Failed to update profile image URL.');
-          } else {
-            setProfileImage(publicUrl);
-            Alert.alert('Success', 'Profile picture updated!');
-
-            // Trigger a local notification to inform the user
-            await Notifications.scheduleNotificationAsync({
-              content: {
-                title: 'Profile Picture Updated!',
-                body: 'Your profile picture has been successfully updated.',
-              },
-              trigger: null, // Trigger immediately
-            });
-
-            resolve();
-          }
-        },
-      });
-
-      upload.findPreviousUploads().then((previousUploads) => {
-        if (previousUploads.length) {
-          upload.resumeFromPreviousUpload(previousUploads[0]);
-        }
-
-        upload.start();
-      });
-    });
-  };
-
-  const renderActivityItem = ({ item }) => (
-    <View style={styles.activityItem}>
-      <Text style={styles.activityTitle}>{item.title}</Text>
-      <Text style={styles.activityTime}>{item.time}</Text>
-    </View>
-  );
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Loading...</Text>
+        <ActivityIndicator size="large" color="#405e40" />
+        <Text>Loading...</Text>
       </View>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header
-        title="Profile"
-        showBackButton={false}
-        onSettingsPress={handleSettingsPress}
-        showSettingsButton={true}
-      />
+      <ProfileHeader title="Profile" onSettingsPress={() => navigation.navigate('SettingsPage')} />
       <View style={styles.content}>
-        <TouchableOpacity onPress={handleProfileImageChange}>
-          <Image
-            source={profileImage ? { uri: profileImage } : require('../assets/default.png')}
-            style={styles.profileImage}
-          />
-        </TouchableOpacity>
-        <Text style={styles.name}>{userName || 'Loading...'}</Text>
-        <Text style={styles.email}>{email || 'Loading...'}</Text>
-
-        {/* Recent Activities Section */}
-        <View style={styles.recentActivities}>
-          <Text style={styles.activitiesTitle}>Recent Activities</Text>
-          <FlatList
-            data={recentActivities}
-            renderItem={renderActivityItem}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={{ paddingBottom: 10 }}
-          />
-        </View>
+        <ProfileInfo
+          profileImage={profileImage}
+          userName={userName}
+          email={email}
+          onProfileImageChange={handleProfileImageChange}
+        />
+        <RecentActivities recentActivities={recentActivities} />
       </View>
     </SafeAreaView>
   );
@@ -226,65 +109,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
-    fontSize: 18,
-    color: '#666',
-  },
   content: {
     flex: 1,
     padding: 20,
-    alignItems: 'center',
-  },
-  profileImage: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    borderWidth: 2,
-    borderColor: '#ddd',
-    marginBottom: 15,
-  },
-  name: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  email: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 20,
-  },
-  recentActivities: {
-    marginTop: 20,
-    padding: 15,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1.41,
-    elevation: 2,
-    width: '100%',
-  },
-  activitiesTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#333',
-  },
-  activityItem: {
-    marginBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    paddingBottom: 10,
-  },
-  activityTitle: {
-    fontSize: 16,
-    color: '#333',
-  },
-  activityTime: {
-    fontSize: 14,
-    color: '#666',
   },
 });
 

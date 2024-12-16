@@ -1,87 +1,171 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Image, Alert } from 'react-native';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { supabase } from '../supabase';
+import Header from '../Components/Header';
 
 const AccountPage = ({ navigation }) => {
+  const [user, setUser] = useState(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    // Simulate fetching user data
-    const fetchUserData = () => {
-     
-    };
-    fetchUserData();
-  }, []);
+    const fetchUserData = async () => {
+      setLoading(true);
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-  const handleSave = () => {
+        if (userError || !user) {
+          Alert.alert('Error', 'User not authenticated.');
+          navigation.navigate('LoginPage');
+          return;
+        }
+
+        setUser(user);
+
+        const { data, error: profileError } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError) {
+          Alert.alert('Error', profileError.message);
+        } else {
+          setName(data.full_name || '');
+          setEmail(data.email || '');
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Something went wrong while fetching user data.');
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [navigation]);
+
+  const handleSave = async () => {
     if (password && password !== confirmPassword) {
       Alert.alert('Error', 'Passwords do not match');
-    } else {
-      Alert.alert('Success', 'Profile saved!');
-      // Add additional save functionality here
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const updates = {
+        full_name: name,
+        email: email,
+      };
+
+      if (password) {
+        const { error: passwordError } = await supabase.auth.updateUser({
+          password: password,
+        });
+
+        if (passwordError) {
+          Alert.alert('Error', passwordError.message);
+          setSaving(false);
+          return;
+        }
+      }
+
+      const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
+
+      if (error) {
+        Alert.alert('Error', 'Failed to save changes.');
+      } else {
+        Alert.alert('Success', 'Profile updated successfully.');
+        navigation.goBack();
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An unexpected error occurred.');
+      console.error(error);
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleCancel = () => {
-    navigation.goBack();
-  };
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#405e40" />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="black" />
-        </TouchableOpacity>
-        <Text style={styles.title}>PROFILE</Text>
-        <Image source={require('../assets/logo1.png')} style={styles.logo} />
-      </View>
+      <Header
+        title="Profile"
+        showBackButton={true}
+        onBackPress={() => navigation.goBack()}
+        showSettingsButton={false}
+      />
 
       <View style={styles.profileContainer}>
+        <Text style={styles.label}>Name:</Text>
         <TextInput
           style={styles.input}
-          placeholder="Name"
+          placeholder="Enter your name"
           value={name}
           onChangeText={setName}
         />
+
+        <Text style={styles.label}>Email:</Text>
         <TextInput
           style={styles.input}
-          placeholder="Email"
+          placeholder="Enter your email"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
         />
+
+        <Text style={styles.label}>Password:</Text>
         <TextInput
           style={styles.input}
-          placeholder="Password"
+          placeholder="Enter a new password"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
         />
+
+        <Text style={styles.label}>Confirm Password:</Text>
         <TextInput
           style={styles.input}
-          placeholder="Confirm Password"
+          placeholder="Confirm your password"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           secureTextEntry
         />
-        <TextInput
-          style={styles.input}
-          placeholder="Phone Number"
-          value={phoneNumber}
-          onChangeText={setPhoneNumber}
-          keyboardType="phone-pad"
-        />
 
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+          <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
             <Text style={styles.buttonText}>Cancel</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.buttonText}>Save</Text>
+          <TouchableOpacity
+            style={[styles.saveButton, saving && { opacity: 0.7 }]}
+            onPress={handleSave}
+            disabled={saving}
+          >
+            <Text style={styles.buttonText}>{saving ? 'Saving...' : 'Save'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -92,74 +176,62 @@ const AccountPage = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
-    padding: 15,
+    backgroundColor: '#F9F9F9',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    marginTop: 20,
-  },
-  backButton: {
-    marginRight: 10,
-  },
-  title: {
+  loadingContainer: {
     flex: 1,
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#405e40',
-    textAlign: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  logo: {
-    width: 100,
-    height: 40,
-    resizeMode: 'contain',
+  loadingText: {
+    fontSize: 18,
+    color: '#666',
   },
   profileContainer: {
-    backgroundColor: '#FFFFFF',
-    padding: 20,
+    backgroundColor: '#fff',
     borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 3,
-    marginTop: 20,
+    padding: 15,
+    margin: 15,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 5,
   },
   input: {
-    width: '100%',
-    padding: 10,
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    padding: 12,
     marginBottom: 15,
+    fontSize: 16,
+    color: '#333',
     backgroundColor: '#FAFAFA',
   },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: '100%',
-    marginTop: 15,
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#d9534f',
-    padding: 15,
-    borderRadius: 5,
-    marginRight: 5,
+    backgroundColor: '#E74C3C',
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginRight: 10,
+    alignItems: 'center',
   },
   saveButton: {
     flex: 1,
-    backgroundColor: '#405e40',
-    padding: 15,
-    borderRadius: 5,
-    marginLeft: 5,
+    backgroundColor: '#27AE60',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
   },
   buttonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
 

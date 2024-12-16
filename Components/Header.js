@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, SafeAreaView } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
 const Header = ({
@@ -13,21 +12,26 @@ const Header = ({
   leftIcon = "arrow-back",
   rightIcon = "settings",
   newMessageIcon = "create-outline",
-  leftIconColor = "white",
-  rightIconColor = "white",
+  leftIconColor = "#000", // Default to black for simplicity
+  rightIconColor = "#000",
 }) => {
   return (
     <>
-      <StatusBar translucent barStyle="light-content" backgroundColor="transparent" />
-      <LinearGradient colors={['#257446', '#1f4b33', '#1b3f2b']} style={styles.gradient}>
-        <SafeAreaView style={styles.safeArea}>
-          <View style={styles.headerContent}>
-            {showBackButton && (
-              <TouchableOpacity onPress={onBackPress} style={styles.iconButton}>
-                <Ionicons name={leftIcon} size={24} color={leftIconColor} />
-              </TouchableOpacity>
-            )}
-            <Text style={styles.title}>{title}</Text>
+      <StatusBar translucent barStyle="dark-content" backgroundColor="transparent" />
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.headerContainer}>
+          {/* Left Button */}
+          {showBackButton && (
+            <TouchableOpacity onPress={onBackPress} style={styles.iconButton}>
+              <Ionicons name={leftIcon} size={24} color={leftIconColor} />
+            </TouchableOpacity>
+          )}
+
+          {/* Title */}
+          <Text style={styles.title}>{title}</Text>
+
+          {/* Right Buttons */}
+          <View style={styles.rightIcons}>
             {onNewMessagePress && (
               <TouchableOpacity onPress={onNewMessagePress} style={styles.iconButton}>
                 <Ionicons name={newMessageIcon} size={24} color={rightIconColor} />
@@ -39,43 +43,40 @@ const Header = ({
               </TouchableOpacity>
             )}
           </View>
-        </SafeAreaView>
-      </LinearGradient>
+        </View>
+      </SafeAreaView>
     </>
   );
 };
 
 const styles = StyleSheet.create({
-  gradient: {
-    paddingBottom: 30,
-    elevation: 5,
-    shadowColor: "#000", 
-    shadowOffset: { width: 0, height: 5 }, 
-    shadowOpacity: 0.5, 
-    shadowRadius: 3,
-  },
   safeArea: {
-    paddingTop: StatusBar.currentHeight || 10, 
+    backgroundColor: '#fff', // Light background for a clean look
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0', // Subtle border for separation
   },
-  headerContent: {
+  headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 15,
+    paddingVertical: 10,
   },
   title: {
-    color: 'white',
-    fontSize: 18, 
+    fontSize: 18,
     fontWeight: '600',
+    color: '#333', // Neutral text color for clarity
     flex: 1,
     textAlign: 'center',
   },
   iconButton: {
     justifyContent: 'center',
     alignItems: 'center',
-    width: 35, 
-    height: 35,
-    borderRadius: 17.5,
+    padding: 5,
+  },
+  rightIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
 

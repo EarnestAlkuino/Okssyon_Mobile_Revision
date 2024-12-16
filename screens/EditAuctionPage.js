@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+  ScrollView,
+} from 'react-native';
 import { supabase } from '../supabase';
 import AuctionDetailsHeader from '../Components/LivestockAuctionDetailPage/AuctionDetailsHeader';
 
@@ -20,7 +29,7 @@ const EditAuctionPage = ({ route, navigation }) => {
 
       if (error) {
         Alert.alert('Error', 'Failed to load auction details.');
-        console.error("Error fetching auction details:", error);
+        console.error('Error fetching auction details:', error);
         navigation.goBack();
       } else {
         setItem(data);
@@ -30,7 +39,6 @@ const EditAuctionPage = ({ route, navigation }) => {
 
     fetchItem();
 
-    // Real-time subscription for updates
     const subscription = supabase
       .channel('livestock_changes')
       .on(
@@ -53,7 +61,7 @@ const EditAuctionPage = ({ route, navigation }) => {
       Alert.alert('Validation Error', 'Please fill in all fields correctly.');
       return;
     }
-
+  
     setSaving(true);
     const { error } = await supabase
       .from('livestock')
@@ -65,15 +73,23 @@ const EditAuctionPage = ({ route, navigation }) => {
         location: item.location,
       })
       .eq('livestock_id', itemId);
-
+  
     if (error) {
-      console.error("Save Error:", error);
+      console.error('Save Error:', error);
       Alert.alert('Error', 'Failed to save changes.');
     } else {
-      Alert.alert('Success', 'Auction updated successfully.');
+      Alert.alert('Success', 'Auction updated successfully.', [
+        {
+          text: 'OK',
+          onPress: () => {
+            navigation.navigate('LivestockAuctionDetailPage', { itemId, userId: item.owner_id });
+          },
+        },
+      ]);
     }
     setSaving(false);
   };
+  
 
   if (loading) {
     return (
@@ -94,75 +110,125 @@ const EditAuctionPage = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <AuctionDetailsHeader title="Auction Details" onBackPress={() => navigation.goBack()} />
-      <Text style={styles.header}>Edit Auction</Text>
-      <Text style={styles.label}>Category</Text>
-      <TextInput
-        style={styles.input}
-        value={item.category}
-        onChangeText={(text) => setItem({ ...item, category: text })}
-      />
+      <AuctionDetailsHeader title="Edit Auction" onBackPress={() => navigation.goBack()} />
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
 
-      <Text style={styles.label}>Weight (kg)</Text>
-      <TextInput
-        style={styles.input}
-        value={item.weight.toString()}
-        keyboardType="numeric"
-        onChangeText={(text) => setItem({ ...item, weight: parseFloat(text) || 0 })}
-      />
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>Weight (kg)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter Weight"
+            value={item.weight.toString()}
+            keyboardType="numeric"
+            onChangeText={(text) => setItem({ ...item, weight: parseFloat(text) || 0 })}
+            placeholderTextColor="#A0AEC0"
+          />
+        </View>
 
-      <Text style={styles.label}>Breed</Text>
-      <TextInput
-        style={styles.input}
-        value={item.breed}
-        onChangeText={(text) => setItem({ ...item, breed: text })}
-      />
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>Breed</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter Breed"
+            value={item.breed}
+            onChangeText={(text) => setItem({ ...item, breed: text })}
+            placeholderTextColor="#A0AEC0"
+          />
+        </View>
 
-      <Text style={styles.label}>Starting Price (₱)</Text>
-      <TextInput
-        style={styles.input}
-        value={item.starting_price.toString()}
-        keyboardType="numeric"
-        onChangeText={(text) => setItem({ ...item, starting_price: parseFloat(text) || 0 })}
-      />
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>Starting Price (₱)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter Starting Price"
+            value={item.starting_price.toString()}
+            keyboardType="numeric"
+            onChangeText={(text) => setItem({ ...item, starting_price: parseFloat(text) || 0 })}
+            placeholderTextColor="#A0AEC0"
+          />
+        </View>
 
-      <Text style={styles.label}>Location</Text>
-      <TextInput
-        style={styles.input}
-        value={item.location}
-        onChangeText={(text) => setItem({ ...item, location: text })}
-      />
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>Location</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter Location"
+            value={item.location}
+            onChangeText={(text) => setItem({ ...item, location: text })}
+            placeholderTextColor="#A0AEC0"
+          />
+        </View>
 
-      <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>
-        {saving ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <Text style={styles.saveButtonText}>Save Changes</Text>
-        )}
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.saveButton, saving && styles.disabledButton]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.saveButtonText}>Save Changes</Text>
+          )}
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: '#fff' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
-  label: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 5 },
+  container: {
+    flex: 1,
+    backgroundColor: '#F7FAFC',
+  },
+  scrollContainer: {
+    padding: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F7FAFC',
+  },
+  header: {
+    fontSize: 22,
+    fontWeight: '600',
+    marginBottom: 20,
+    textAlign: 'center',
+    color: '#2D3748',
+  },
+  fieldContainer: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4A5568',
+    marginBottom: 8,
+  },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 20,
+    borderColor: '#CBD5E0',
+    backgroundColor: '#fff',
+    padding: 14,
+    borderRadius: 8,
+    fontSize: 16,
+    color: '#2D3748',
   },
   saveButton: {
-    backgroundColor: '#335441',
-    padding: 15,
-    borderRadius: 5,
+    backgroundColor: '#1E7848',
+    padding: 16,
+    borderRadius: 8,
     alignItems: 'center',
+    marginTop: 20,
   },
-  saveButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  disabledButton: {
+    backgroundColor: '#A0AEC0',
+  },
 });
 
 export default EditAuctionPage;

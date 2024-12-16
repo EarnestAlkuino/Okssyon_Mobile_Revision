@@ -70,8 +70,7 @@ const LoginPage = ({ navigation }) => {
     } else {
       await AsyncStorage.removeItem('rememberedEmail');
     }
-
-    Alert.alert(`Welcome, ${profile.full_name}!`);
+    
     navigation.navigate('MainTabs', { userId: user.id });
     setLoading(false);
   }
@@ -91,7 +90,7 @@ const LoginPage = ({ navigation }) => {
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          placeholder="EMAIL"
+          placeholder="Email"
           placeholderTextColor="#808080"
           value={email}
           onChangeText={setEmail}
@@ -100,7 +99,7 @@ const LoginPage = ({ navigation }) => {
         <View style={styles.passwordWrapper}>
           <TextInput
             style={styles.input}
-            placeholder="PASSWORD"
+            placeholder="Password"
             placeholderTextColor="#808080"
             secureTextEntry={!isPasswordVisible}
             value={password}

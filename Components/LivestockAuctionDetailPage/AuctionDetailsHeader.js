@@ -26,11 +26,6 @@ const styles = StyleSheet.create({
     paddingVertical: Platform.OS === 'ios' ? 15 : 12,
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',
-    elevation: 2, // Shadow for Android
-    shadowColor: '#000', // Shadow for iOS
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
   },
   iconButton: {
     padding: 8,

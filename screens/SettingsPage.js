@@ -1,55 +1,65 @@
-// SettingsPage.js
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import Header from '../Components/Header'; 
+import Header from '../Components/Header';
 
 const SettingsPage = ({ navigation }) => {
   const handleLogout = () => {
-    navigation.navigate('LoginPage'); 
+    navigation.navigate('LoginPage');
   };
 
   return (
     <View style={styles.container}>
       {/* Header Component */}
       <Header
-        title="SETTINGS"
+        title="Settings"
         showBackButton={true}
         onBackPress={() => navigation.goBack()}
-        showSettingsButton={false} 
+        showSettingsButton={false}
       />
 
-      <ScrollView style={styles.scrollView}>
-        <Text style={styles.sectionTitle}>GENERAL</Text>
-        {['Account', 'Help', 'Language', 'About Us'].map((item, index) => (
+      <ScrollView contentContainerStyle={styles.content}>
+        {/* General Section */}
+        <Text style={styles.sectionTitle}>General</Text>
+        {[
+          { label: 'Account', icon: 'person-outline', target: 'AccountPage' },
+          { label: 'Help', icon: 'help-circle-outline', target: 'HelpPage' },
+          { label: 'Language', icon: 'language-outline', target: 'LanguagePage' },
+          { label: 'About Us', icon: 'information-circle-outline', action: () => alert('About Us Page') },
+        ].map((item, index) => (
           <TouchableOpacity
             key={index}
             style={styles.listItem}
-            onPress={() => {
-              if (item === 'Account') {
-                navigation.navigate('AccountPage');
-              } else if (item === 'Help') {
-                navigation.navigate('HelpPage');  
-              } else if (item === 'Language') {
-                navigation.navigate('LanguagePage');
-              } else {
-                alert(`${item} Page`);
-              }
-            }}
+            onPress={() => (item.target ? navigation.navigate(item.target) : item.action())}
           >
-            <Text style={styles.listItemText}>{item}</Text>
-            <Ionicons name="chevron-forward" size={20} color="gray" />
+            <View style={styles.listItemContent}>
+              <Ionicons name={item.icon} size={22} color="#34495E" />
+              <Text style={styles.listItemText}>{item.label}</Text>
+            </View>
+            <Ionicons name="chevron-forward-outline" size={20} color="#A0A0A0" />
           </TouchableOpacity>
         ))}
 
-        <Text style={styles.sectionTitle}>FEEDBACK</Text>
-        {['Report A Bug', 'Send Feedback'].map((item, index) => (
-          <TouchableOpacity key={index} style={styles.listItem}>
-            <Text style={styles.listItemText}>{item}</Text>
-            <Ionicons name="chevron-forward" size={20} color="gray" />
+        {/* Feedback Section */}
+        <Text style={styles.sectionTitle}>Feedback</Text>
+        {[
+          { label: 'Report a Bug', icon: 'bug-outline', action: () => alert('Report a Bug Page') },
+          { label: 'Send Feedback', icon: 'chatbubble-ellipses-outline', action: () => alert('Send Feedback Page') },
+        ].map((item, index) => (
+          <TouchableOpacity
+            key={index}
+            style={styles.listItem}
+            onPress={item.action}
+          >
+            <View style={styles.listItemContent}>
+              <Ionicons name={item.icon} size={22} color="#34495E" />
+              <Text style={styles.listItemText}>{item.label}</Text>
+            </View>
+            <Ionicons name="chevron-forward-outline" size={20} color="#A0A0A0" />
           </TouchableOpacity>
         ))}
 
+        {/* Logout Button */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
@@ -61,38 +71,49 @@ const SettingsPage = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#F9F9F9',
   },
-  scrollView: {
-    paddingHorizontal: 15,
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#34495E',
+    marginBottom: 12,
     marginTop: 20,
-    marginBottom: 10,
   },
   listItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  listItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   listItemText: {
     fontSize: 16,
+    color: '#34495E',
+    marginLeft: 10,
   },
   logoutButton: {
-    marginTop: 30,
-    padding: 15,
-    backgroundColor: '#405e40',
-    borderRadius: 5,
+    backgroundColor: '#E74C3C',
+    paddingVertical: 14,
+    borderRadius: 8,
     alignItems: 'center',
+    marginTop: 30,
   },
   logoutButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
 
