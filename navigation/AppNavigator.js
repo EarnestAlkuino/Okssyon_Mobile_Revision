@@ -29,6 +29,7 @@ import PaymentWebView from '../screens/PaymentWebView';
 import BidderTransactionPage from '../screens/BidderTransactionPage';
 import SellerTransactionPage from '../screens/SellerTransactionPage';
 import OtpPage from '../screens/OtpPage';
+import MyAuctionsPage from '../screens/MyAuctionsPage';
 
 const Stack = createStackNavigator();
 
