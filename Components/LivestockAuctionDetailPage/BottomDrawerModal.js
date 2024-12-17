@@ -28,7 +28,6 @@ const BottomDrawerModal = ({
   const slideAnim = useRef(new Animated.Value(300)).current;
   const [bidAmount, setBidAmount] = useState('');
   const [loading, setLoading] = useState(false);
-  const createdAt = item?.created_at;
 
   // Animate drawer on visibility change
   useEffect(() => {
@@ -47,55 +46,136 @@ const BottomDrawerModal = ({
     }
   }, [isVisible]);
 
-  // Add preset increment to bid
-  const addToBid = (amount) => {
-    if (typeof amount !== 'number') return;
-    const newBid = (parseFloat(bidAmount || 0) + amount).toString();
-    setBidAmount(newBid);
-  };
-
-  // Handle bid submission
   const handlePlaceBid = async () => {
-    const parsedBidAmount = parseFloat(bidAmount);
-
+    if (!item) {
+      Alert.alert('Error', 'Invalid auction item.');
+      return;
+    }
+  
     if (userId === ownerId) {
       Alert.alert('Error', 'You cannot place a bid on your own auction.');
       return;
     }
-
-    if (isNaN(parsedBidAmount) || parsedBidAmount <= currentHighestBid) {
+  
+    const parsedBidAmount = parseFloat(bidAmount);
+    if (isNaN(parsedBidAmount)) {
+      Alert.alert('Invalid Bid', 'Please enter a valid bid amount.');
+      return;
+    }
+  
+    if (parsedBidAmount <= currentHighestBid) {
       Alert.alert(
         'Invalid Bid',
-        `Your bid must be higher than the current highest bid of ₱${(currentHighestBid || 0).toLocaleString()}.`
+        `Your bid must be higher than the current highest bid of ₱${currentHighestBid.toLocaleString()}.`
       );
       return;
     }
-
+  
     setLoading(true);
+  
     try {
-      const { error } = await supabase.from('bids').insert([
-        {
+      // Fetch the current highest bidder
+      const { data: highestBidderData, error: highestBidderError } = await supabase
+        .from('bids')
+        .select('bidder_id, bid_amount')
+        .eq('livestock_id', item.livestock_id)
+        .order('bid_amount', { ascending: false })
+        .limit(1);
+  
+      if (highestBidderError) {
+        throw highestBidderError;
+      }
+  
+      const currentHighestBidder = highestBidderData?.[0]?.bidder_id;
+  
+      // Insert the new bid into the 'bids' table
+      const { error: bidError } = await supabase
+        .from('bids')
+        .insert([{
           livestock_id: item.livestock_id,
           bidder_id: userId,
           bid_amount: parsedBidAmount,
           status: 'pending',
-        },
-      ]);
-
-      if (error) throw error;
-
+        }]);
+  
+      if (bidError) {
+        throw bidError;
+      }
+  
+      // Update the highest bid state
       setCurrentHighestBid(parsedBidAmount);
-      Alert.alert(
-        'Success',
-        `You placed a bid of ₱${parsedBidAmount.toLocaleString()}.`
-      );
-      setBidAmount('');
-      onClose();
-    } catch (err) {
-      Alert.alert('Error', 'Failed to place your bid. Please try again.');
+  
+      // Notify the seller
+      if (userId !== ownerId) {
+        const sellerMessage = `A new bid of ₱${parsedBidAmount.toLocaleString()} has been placed on your livestock!`;
+        const { error: sellerNotifError } = await supabase
+          .from('notifications')
+          .insert([{
+            livestock_id: item.livestock_id,
+            recipient_id: ownerId,
+            recipient_role: 'SELLER',
+            notification_type: 'NEW_BID',
+            message: sellerMessage,
+            is_read: false,
+          }]);
+  
+        if (sellerNotifError) {
+          console.error('Error inserting seller notification:', sellerNotifError);
+        }
+      }
+  
+      // Notify the current highest bidder about being outbid
+      if (currentHighestBidder && currentHighestBidder !== userId) {
+        const outbidMessage = `You have been outbid on the auction for ${item.category || 'this item'}. Place a higher bid to win!`;
+        const { error: outbidNotifError } = await supabase
+          .from('notifications')
+          .insert([{
+            livestock_id: item.livestock_id,
+            recipient_id: currentHighestBidder,
+            recipient_role: 'BIDDER',
+            notification_type: 'OUTBID',
+            message: outbidMessage,
+            is_read: false,
+          }]);
+  
+        if (outbidNotifError) {
+          console.error('Error inserting outbid notification:', outbidNotifError);
+        }
+      }
+  
+      // Notify the current bidder
+      const bidderMessage = `You have successfully placed a bid of ₱${parsedBidAmount.toLocaleString()} on this livestock!`;
+      const { error: bidderNotifError } = await supabase
+        .from('notifications')
+        .insert([{
+          livestock_id: item.livestock_id,
+          recipient_id: userId,
+          recipient_role: 'BIDDER',
+          notification_type: 'NEW_BID',
+          message: bidderMessage,
+          is_read: false,
+        }]);
+  
+      if (bidderNotifError) {
+        console.error('Error inserting bidder notification:', bidderNotifError);
+      }
+  
+      Alert.alert('Success', `You have successfully placed a bid of ₱${parsedBidAmount.toLocaleString()}.`);
+  
+    } catch (error) {
+      console.error('Error placing bid or sending notification:', error);
+      Alert.alert('Error', 'Could not place your bid or send notification. Please try again later.');
     } finally {
       setLoading(false);
     }
+  };
+  
+ 
+ 
+ 
+  const addToBid = (amount) => {
+    const newBid = (parseInt(bidAmount || 0, 10) + amount).toString();
+    setBidAmount(newBid);
   };
 
   return (
@@ -124,7 +204,6 @@ const BottomDrawerModal = ({
               <Text style={styles.headerTitle}>Place a Bid</Text>
             </View>
 
-            {/* Bid Info */}
             <View style={styles.bidInfoContainer}>
               <View style={styles.bidItem}>
                 <Text style={styles.bidLabel}>Highest Bid</Text>
@@ -136,7 +215,6 @@ const BottomDrawerModal = ({
               </View>
             </View>
 
-            {/* Bid Input */}
             <TextInput
               style={styles.input}
               placeholder="Enter your bid"
@@ -146,7 +224,6 @@ const BottomDrawerModal = ({
               placeholderTextColor="#A0AEC0"
             />
 
-            {/* Preset Bid Buttons */}
             <View style={styles.gridContainer}>
               <View style={styles.gridRow}>
                 {[1000, 3000].map((amount) => (
@@ -172,7 +249,6 @@ const BottomDrawerModal = ({
               </View>
             </View>
 
-            {/* Submit Button */}
             <TouchableOpacity
               style={[styles.submitButton, loading && styles.disabledButton]}
               onPress={handlePlaceBid}
@@ -243,16 +319,19 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     color: '#2D3748',
   },
-  presetBidContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+  gridContainer: {
     marginBottom: 20,
   },
-  presetButton: {
+  gridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 10,
+  },
+  gridButton: {
     backgroundColor: '#EDF2F7',
     padding: 10,
     borderRadius: 8,
-    width: '22%',
+    width: '45%',
     alignItems: 'center',
   },
   presetButtonText: {
@@ -274,22 +353,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#fff',
   },
-  gridContainer: {
-    marginBottom: 20,
-  },
-  gridRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 10,
-  },
-  gridButton: {
-    backgroundColor: '#EDF2F7',
-    padding: 10,
-    borderRadius: 8,
-    width: '45%', // Adjust width for proper spacing
-    alignItems: 'center',
-  },
-  
 });
 
 export default BottomDrawerModal;

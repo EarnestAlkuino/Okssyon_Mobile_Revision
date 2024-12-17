@@ -9,12 +9,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { supabase } from '../supabase';
 
 const BidderTransactionPage = ({ route, navigation }) => {
   const { livestockId } = route.params || {};
   const [transactionSteps, setTransactionSteps] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [downloadedFiles, setDownloadedFiles] = useState([]); // Track downloaded files
 
   const isValidUUID = (id) =>
     /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[4-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(id);
@@ -29,67 +32,60 @@ const BidderTransactionPage = ({ route, navigation }) => {
 
     const fetchTransactionData = async () => {
       setLoading(true);
-    
+
       try {
-        // Fetch livestock details, including status and winner_id
+        // Fetch livestock details, including status and documents
         const { data: livestock, error } = await supabase
           .from('livestock')
-          .select('status, starting_price, winner_id')
+          .select(
+            'status, starting_price, winner_id, proof_of_ownership_url, vet_certificate_url, proof_sent, vet_cert_sent'
+          )
           .eq('livestock_id', livestockId)
           .single();
-    
+
         if (error || !livestock) {
           console.error('Error fetching livestock data:', error);
           Alert.alert('Error', 'Failed to load transaction data. Please try again.');
           return;
         }
-    
+
         const steps = [];
-    
+
         // Step 1: Auction Confirmation
-        if (livestock.status === 'AUCTION_ENDED' || livestock.status === 'SOLD') {
-          steps.push({
-            id: '1',
-            name: 'Auction Confirmed',
-            price: `Winning Price: ₱${livestock.starting_price || 'N/A'}`,
-            status: 'completed',
-          });
-        } else {
-          steps.push({
-            id: '1',
-            name: 'Awaiting Auction Confirmation',
-            price: null,
-            status: 'pending',
-          });
-        }
+        steps.push({
+          id: '1',
+          name: 'Auction Confirmed',
     
+          status: livestock.status === 'SOLD' || livestock.status === 'AUCTION_ENDED' ? 'completed' : 'pending',
+        });
+
         // Step 2: Livestock Sold
-        if (livestock.status === 'SOLD') {
-          steps.push({
-            id: '2',
-            name: 'Livestock Sold',
-            price: null,
-            status: 'completed',
-          });
-    
-          // Send notification to the winning bidder
-          const { error: notificationError } = await supabase.from('notifications').insert({
-            recipient_id: livestock.winner_id, // ID of the winning bidder
-            recipient_role: 'BIDDER',
-            livestock_id: livestockId,
-            message: `Congratulations! You have won the auction for the livestock with a final price of ₱${livestock.starting_price}.`,
-            notification_type: 'WINNER',
-            is_read: false,
-            created_at: new Date().toISOString(),
-          });
-    
-          if (notificationError) {
-            console.error('Error sending notification:', notificationError.message);
-          } else {
-            console.log('Notification sent to the winning bidder.');
-          }
-        }
-    
+        steps.push({
+          id: '2',
+          name: 'Livestock Sold',
+          status: livestock.status === 'SOLD' ? 'completed' : 'pending',
+        });
+
+        // Step 3: Proof of Ownership Sent
+        steps.push({
+          id: '3',
+          name: 'Proof of Ownership Received',
+          status: livestock.proof_sent ? 'completed' : 'pending',
+          action: livestock.proof_of_ownership_url
+            ? () => downloadDocument(livestock.proof_of_ownership_url, 'Proof_of_Ownership.pdf')
+            : null,
+        });
+
+        // Step 4: Vet Certification Sent
+        steps.push({
+          id: '4',
+          name: 'Vet Certification Received',
+          status: livestock.vet_cert_sent ? 'completed' : 'pending',
+          action: livestock.vet_certificate_url
+            ? () => downloadDocument(livestock.vet_certificate_url, 'Vet_Certification.pdf')
+            : null,
+        });
+
         setTransactionSteps(steps);
       } catch (error) {
         console.error('Unexpected error fetching transaction data:', error.message);
@@ -98,10 +94,35 @@ const BidderTransactionPage = ({ route, navigation }) => {
         setLoading(false);
       }
     };
-    
-    
+
     fetchTransactionData();
   }, [livestockId]);
+
+  const downloadDocument = async (url, fileName) => {
+    try {
+      if (downloadedFiles.includes(fileName)) {
+        Alert.alert('Info', `${fileName} has already been downloaded.`);
+        return;
+      }
+
+      const fileUri = FileSystem.documentDirectory + fileName;
+      const { uri } = await FileSystem.downloadAsync(url, fileUri);
+
+      if (uri) {
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri);
+        }
+
+        Alert.alert('Download Complete', `${fileName} saved successfully.`);
+        setDownloadedFiles((prev) => [...prev, fileName]); // Mark file as downloaded
+      } else {
+        Alert.alert('Error', 'Failed to download the document.');
+      }
+    } catch (error) {
+      console.error(`Error downloading ${fileName}:`, error);
+      Alert.alert('Error', `Failed to download ${fileName}. Please try again.`);
+    }
+  };
 
   if (loading) {
     return (
@@ -119,7 +140,7 @@ const BidderTransactionPage = ({ route, navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#257446" />
         </TouchableOpacity>
-        <Text style={styles.headerText}>Auction Transaction</Text>
+        <Text style={styles.headerText}>Bidder Transaction</Text>
       </View>
 
       {/* Content */}
@@ -130,9 +151,7 @@ const BidderTransactionPage = ({ route, navigation }) => {
             <View
               style={[
                 styles.stepCircle,
-                step.status === 'completed'
-                  ? styles.completedStepCircle
-                  : styles.pendingStepCircle,
+                step.status === 'completed' ? styles.completedStepCircle : styles.pendingStepCircle,
               ]}
             >
               {step.status === 'completed' && (
@@ -151,6 +170,15 @@ const BidderTransactionPage = ({ route, navigation }) => {
                 {step.name}
               </Text>
               {step.price && <Text style={styles.priceText}>{step.price}</Text>}
+
+              {/* Action Button for Viewing/Downloading Documents */}
+              {step.action && step.status === 'completed' && (
+                <TouchableOpacity style={styles.downloadButton} onPress={step.action}>
+                  <Text style={styles.downloadButtonText}>
+                    {downloadedFiles.includes(step.name) ? 'Downloaded' : 'Download Document'}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         ))}
@@ -216,6 +244,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#257446',
     fontWeight: '400',
+  },
+  downloadButton: {
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#257446',
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  downloadButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   loadingContainer: {
     flex: 1,

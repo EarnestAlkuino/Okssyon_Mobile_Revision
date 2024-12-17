@@ -43,6 +43,7 @@
     "expo-notifications": "^0.29.10",
     "expo-splash-screen": "~0.29.13",
     "expo-status-bar": "~2.0.0",
+    "moment": "^2.30.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-native": "^0.76.4",
@@ -68,7 +69,8 @@
     "react-native-webview": "^13.12.5",
     "tus-js-client": "^4.2.3",
     "typescript": "~5.3.3",
-    "uuid": "^11.0.3"
+    "uuid": "^11.0.3",
+    "expo-sharing": "~13.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

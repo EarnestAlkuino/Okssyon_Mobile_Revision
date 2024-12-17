@@ -4,7 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
 import Header from '../Components/Header';
 import { supabase } from '../supabase';
-
+ 
 const NotificationPage = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState('Recent');
   const [notifications, setNotifications] = useState([]);
@@ -13,90 +13,87 @@ const NotificationPage = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
-
+ 
+  // Request notification permissions
+  useEffect(() => {
+    const getNotificationPermissions = async () => {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== 'granted') {
+        await Notifications.requestPermissionsAsync();
+      }
+    };
+    getNotificationPermissions();
+  }, []);
+ 
+  // Hide splash screen and fetch data
   useEffect(() => {
     const hideSplashScreen = async () => {
       await SplashScreen.hideAsync();
     };
     hideSplashScreen();
-  
+ 
     fetchNotifications();
     fetchAnnouncements();
-  
-    // Real-time listener for notifications specific to the current user
+ 
+    // Real-time listener for notifications
     const notificationChannel = supabase
       .channel('notifications')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications' },
-        async (payload) => {
-          const currentUserId = await getCurrentUserId(); // Function to fetch the logged-in user's ID
-          if (payload.new.recipient_id === currentUserId) {
-            // Notify only the intended user
-            await sendPushNotification('New Notification', payload.new.message);
-  
-            // Update notifications in local state
-            setNotifications((prevNotifications) => [
-              payload.new,
-              ...prevNotifications,
-            ]);
-  
-            // Increment unread count
-            if (!payload.new.is_read) {
-              setUnreadCount((prevCount) => prevCount + 1);
-            }
-          }
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, async (payload) => {
+        const { message, notification_type, bidder_id, seller_id } = payload.new;
+ 
+        // Send notifications for both roles (Bidder and Seller)
+        if (bidder_id) {
+          await sendPushNotification('Bidder Notification', message);
         }
-      )
+        if (seller_id) {
+          await sendPushNotification('Seller Notification', message);
+        }
+ 
+        // Update notifications in local state
+        setNotifications((prevNotifications) => [payload.new, ...prevNotifications]);
+        setUnreadCount((prevCount) => prevCount + 1);
+      })
       .subscribe();
-  
+ 
     // Real-time listener for announcements
     const announcementChannel = supabase
       .channel('announcements')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'announcements' },
-        async (payload) => {
-          await sendPushNotification('New Announcement', payload.new.text);
-          setAnnouncements((prevAnnouncements) => [
-            payload.new,
-            ...prevAnnouncements,
-          ]);
-        }
-      )
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, async (payload) => {
+        const { text } = payload.new;
+        await sendPushNotification('New Announcement', text);
+        setAnnouncements((prevAnnouncements) => [payload.new, ...prevAnnouncements]);
+      })
       .subscribe();
-  
+ 
     // Cleanup listeners on unmount
     return () => {
       supabase.removeChannel(notificationChannel);
       supabase.removeChannel(announcementChannel);
     };
   }, []);
-  
-  // Function to fetch the current user's ID
-  const getCurrentUserId = async () => {
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !sessionData?.session) {
-      throw new Error('User not logged in');
-    }
-    return sessionData.session.user.id;
-  };
-  
-  // Fetch notifications for the current user
+ 
+  // Fetch notifications
   const fetchNotifications = async () => {
     setLoading(true);
     try {
-      const userId = await getCurrentUserId();
-      const { data: userNotifications, error } = await supabase
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !sessionData?.session) {
+        throw new Error('User not logged in');
+      }
+ 
+      const userId = sessionData.session.user.id;
+      const { data: userNotifications, error: notifError } = await supabase
         .from('notifications')
         .select('*')
         .eq('recipient_id', userId)
         .order('created_at', { ascending: false });
-  
-      if (error) throw new Error('Failed to fetch notifications');
-  
+ 
+      if (notifError) {
+        throw new Error('Failed to fetch notifications');
+      }
+ 
       setNotifications(userNotifications);
-  
+ 
       // Update unread notifications count
       const unreadNotifications = userNotifications.filter((notif) => !notif.is_read);
       setUnreadCount(unreadNotifications.length);
@@ -106,50 +103,21 @@ const NotificationPage = ({ navigation }) => {
       setLoading(false);
     }
   };
-
-  const sendAuctionNotification = async (livestockId, ownerId, status) => {
-    try {
-      const notificationType = status === 'AVAILABLE' ? 'AUCTION_APPROVED' : 'AUCTION_DISAPPROVED';
-      const message =
-        status === 'AVAILABLE'
-          ? 'Your auction has been approved and is now running.'
-          : 'Your auction has been disapproved. Please contact support for details.';
-  
-      // Insert notification into the database
-      const { error } = await supabase.from('notifications').insert({
-        livestock_id: livestockId,
-        recipient_id: ownerId,
-        recipient_role: 'SELLER',
-        message,
-        notification_type: notificationType,
-        is_read: false, // Mark as unread initially
-      });
-  
-      if (error) {
-        throw new Error('Failed to create notification');
-      }
-  
-      console.log('Notification successfully created');
-    } catch (error) {
-      console.error('Error sending notification:', error.message);
-    }
-  };
-  
-
+ 
   // Fetch announcements
   const fetchAnnouncements = async () => {
     const { data, error } = await supabase
       .from('announcements')
       .select('*')
       .order('created_at', { ascending: false });
-
+ 
     if (error) {
       setError('Failed to load announcements');
     } else {
       setAnnouncements(data);
     }
   };
-
+ 
   // Helper function to send a push notification
   const sendPushNotification = async (title, message) => {
     try {
@@ -164,57 +132,87 @@ const NotificationPage = ({ navigation }) => {
       console.error('Failed to send push notification:', error);
     }
   };
-
+ 
   // Handle tab change (Recent vs All Notifications)
   const handleTabChange = (tab) => {
     setActiveTab(tab);
   };
-
-  // Handle notification press (mark as read, navigate to relevant page)
+ 
   const handleNotificationPress = async (item) => {
-    if (item.notification_id && !item.is_read) {
-      await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('notification_id', item.notification_id); // Mark as read in the database
-  
-      setNotifications((prevNotifications) =>
-        prevNotifications.map((notif) =>
-          notif.notification_id === item.notification_id
-            ? { ...notif, is_read: true }
-            : notif
-        )
-      );
-      setUnreadCount((prevCount) => prevCount - 1);
-    }
-  
-    // Handle notification types
-    if (item.notification_type === 'AUCTION_APPROVED') {
-      // Navigate to SellerTransactionPage for approved auctions
-      navigation.navigate('SellerTransactionPage', { livestockId: item.livestock_id });
-    } else if (item.notification_type === 'AUCTION_DISAPPROVED') {
-      // Notify seller why the auction was disapproved
-      Alert.alert(
-        'Auction Disapproved',
-        'Your auction has been disapproved. Please contact support for more details.',
-        [{ text: 'OK' }]
-      );
-    } else if (item.notification_type === 'WINNER') {
-      navigation.navigate('BidderTransactionPage', { livestockId: item.livestock_id });
-    } else if (item.notification_type === 'AUCTION_END') {
-      if (item.recipient_role === 'BIDDER') {
-        navigation.navigate('WinnerConfirmationPage', { livestockId: item.livestock_id });
-      } else if (item.recipient_role === 'SELLER') {
-        navigation.navigate('SellerTransactionPage', { livestockId: item.livestock_id });
+    try {
+      // Mark the notification as read if it's not already read
+      if (item.notification_id && !item.is_read) {
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('notification_id', item.notification_id);
+        
+        // Update local notifications state
+        setNotifications((prevNotifications) =>
+          prevNotifications.map((notif) =>
+            notif.notification_id === item.notification_id ? { ...notif, is_read: true } : notif
+          )
+        );
+        
+        // Update unread count
+        setUnreadCount((prevCount) => prevCount - 1);
       }
-    } else if (item.livestock_id) {
-      navigation.navigate('LivestockAuctionDetailPage', { itemId: item.livestock_id });
+  
+      // Handle different notification types and navigate accordingly
+      if (item.notification_type === 'AUCTION_END') {
+        if (item.recipient_role === 'BIDDER') {
+          // Navigate to WinnerConfirmationPage if the user is the winning bidder
+          navigation.navigate('WinnerConfirmationPage', { livestockId: item.livestock_id });
+        } else if (item.recipient_role === 'SELLER') {
+          // Navigate to SellerTransactionPage if the user is the seller
+          navigation.navigate('SellerTransactionPage', { livestockId: item.livestock_id });
+        }
+      } else if (item.notification_type === 'NEW_FORUM_QUESTION' || item.notification_type === 'NEW_FORUM_ANSWER') {
+        // Fetch owner_id if the recipient is a seller
+        let ownerId = item.user_id;
+  
+        if (item.recipient_role === 'SELLER') {
+          try {
+            const { data: livestockData, error } = await supabase
+              .from('livestock')
+              .select('owner_id')
+              .eq('livestock_id', item.livestock_id)
+              .single();
+  
+            if (error) {
+              console.error('Error fetching owner_id:', error.message);
+            } else {
+              ownerId = livestockData.owner_id;
+            }
+          } catch (fetchError) {
+            console.error('Error fetching livestock data:', fetchError.message);
+          }
+        }
+  
+        // Navigate to the ForumPage
+        navigation.navigate('ForumPage', {
+          item: {
+            livestock_id: item.livestock_id,
+            category: item.category || 'Unknown',
+            created_by: item.created_by,
+          },
+          userId: ownerId,
+        });
+      } else if (item.livestock_id) {
+        // Default navigation to LivestockAuctionDetailPage
+        navigation.navigate('LivestockAuctionDetailPage', { itemId: item.livestock_id });
+      } else {
+        console.warn('Unhandled notification type:', item.notification_type);
+      }
+    } catch (error) {
+      console.error('Error handling notification press:', error.message);
     }
   };
   
-  
-  
-
+ 
+ 
+ 
+ 
   // Render notification item in list
   const renderNotificationItem = ({ item }) => (
     <TouchableOpacity
@@ -229,7 +227,7 @@ const NotificationPage = ({ navigation }) => {
       </View>
     </TouchableOpacity>
   );
-
+ 
   // Handle pull-to-refresh
   const onRefresh = () => {
     setRefreshing(true);
@@ -237,7 +235,7 @@ const NotificationPage = ({ navigation }) => {
     fetchAnnouncements();
     setRefreshing(false);
   };
-
+ 
   return (
     <View style={styles.container}>
       <Header title="Notifications" showBackButton={false} showSettingsButton={false} onBackPress={() => navigation.goBack()} />
@@ -275,7 +273,7 @@ const NotificationPage = ({ navigation }) => {
     </View>
   );
 };
-
+ 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -360,7 +358,8 @@ const styles = StyleSheet.create({
     color: '#9E9E9E',
   },
 });
-
+ 
 export default NotificationPage;
-
+ 
    
+ 

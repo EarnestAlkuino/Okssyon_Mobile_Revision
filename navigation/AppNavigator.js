@@ -30,6 +30,7 @@ import BidderTransactionPage from '../screens/BidderTransactionPage';
 import SellerTransactionPage from '../screens/SellerTransactionPage';
 import OtpPage from '../screens/OtpPage';
 import MyAuctionsPage from '../screens/MyAuctionsPage';
+import NotificationPage from '../screens/NotificationPage';
 
 const Stack = createStackNavigator();
 
@@ -171,6 +172,11 @@ const AppNavigator = () => {
         <Stack.Screen
         name='SellerTransactionPage'
         component={SellerTransactionPage}
+        options={{headerShown: false}}
+        />
+         <Stack.Screen
+        name='NotificationPage'
+        component={NotificationPage}
         options={{headerShown: false}}
         />
         <Stack.Screen

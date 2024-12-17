@@ -29,12 +29,14 @@ const AuctionPage = ({ navigation, route }) => {
         .select('*')
         .eq('status', 'AVAILABLE')
         .neq('category', '')
-        .eq('category', category.toLowerCase());
-
+        .eq('category', category.toLowerCase())
+        .not('starting_price', 'is', null); // Ensure starting price exists
+  
       if (error) {
         console.error('Error fetching data:', error.message);
         Alert.alert('Error', `Failed to fetch livestock data: ${error.message}`);
       } else {
+        console.log('Fetched Livestock Data:', data); // Debug log
         setLivestockData(data);
       }
     } catch (err) {
@@ -43,7 +45,7 @@ const AuctionPage = ({ navigation, route }) => {
     }
     setLoading(false);
   };
-
+  
   useEffect(() => {
     if (isFocused) {
       fetchLivestockData();

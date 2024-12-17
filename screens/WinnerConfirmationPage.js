@@ -21,7 +21,7 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
   useEffect(() => {
     const fetchAuctionResult = async () => {
       try {
-        // Fetch the auction result and confirmation status
+        // Fetch the auction result
         const { data, error } = await supabase
           .from('bids')
           .select(`
@@ -35,25 +35,33 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
           `)
           .eq('livestock_id', livestockId)
           .order('bid_amount', { ascending: false })
-          .limit(1)
-          .single();
-
+          .limit(1);
+    
         if (error) {
           console.error('Error fetching auction result:', error);
-        } else if (!data) {
+          return;
+        }
+    
+        if (!data || data.length === 0) {
           console.warn('No auction results found for the provided livestockId.');
-        } else {
-          setAuctionResult(data);
-
-          // Check the confirmation status
-          const { data: confirmationData, error: confirmationError } = await supabase
-            .select('confirmation_status')
-            .eq('livestock_id', livestockId)
-            .single();
-
-          if (confirmationError) {
-            console.error('Error checking confirmation status:', confirmationError);
-          } else if (confirmationData?.confirmation_status === 'CONFIRMED') {
+          return;
+        }
+    
+        const auctionData = data[0];
+        setAuctionResult(auctionData);
+    
+        // Check confirmation status
+        const { data: confirmationData, error: confirmationError } = await supabase
+          .from('auction_results')
+          .select('confirmation_status')
+          .eq('livestock_id', livestockId)
+          .limit(1); // Replace .single() with limit(1)
+    
+        if (confirmationError) {
+          console.error('Error checking confirmation status:', confirmationError);
+        } else if (confirmationData && confirmationData.length > 0) {
+          const confirmationStatus = confirmationData[0].confirmation_status;
+          if (confirmationStatus === 'CONFIRMED') {
             setIsConfirmed(true);
           }
         }
@@ -63,7 +71,8 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
         setLoading(false);
       }
     };
-
+    
+  
     fetchAuctionResult();
   }, [livestockId]);
 
@@ -78,61 +87,109 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
       return;
     }
   
-    Alert.alert(
-      'Confirm Sale',
-      'Are you sure you want to confirm this sale?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: async () => {
-            try {
-              // Update the livestock status
-              const { error: livestockError } = await supabase
-                .from('livestock')
-                .update({ status: 'SOLD' })
-                .eq('livestock_id', livestockId);
+    Alert.alert('Confirm Sale', 'Are you sure you want to confirm this sale?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Confirm',
+        onPress: async () => {
+          try {
+            setLoading(true);
   
-              if (livestockError) {
-                Alert.alert('Error', 'Failed to update livestock status. Please try again.');
-                console.error('Error updating livestock status:', livestockError);
-                return;
-              }
+            // Step 1: Update the livestock status to SOLD
+            const { error: updateError } = await supabase
+              .from('livestock')
+              .update({ status: 'SOLD' })
+              .eq('livestock_id', livestockId);
   
-             
-              // Send a notification to the user who confirmed
-              const { error: notificationError } = await supabase.from('notifications').insert({
-                recipient_id: auctionResult.profiles?.id, // User ID of the bidder
-                recipient_role: 'SELLER', // Role of the confirming user
+            if (updateError) {
+              console.error('Error updating livestock status:', updateError);
+              Alert.alert('Error', 'Failed to confirm the sale.');
+              return;
+            }
+  
+            // Step 2: Fetch recipient IDs for the owner and the highest bidder
+            const { data: livestockDetails, error: detailsError } = await supabase
+              .from('livestock')
+              .select('owner_id')
+              .eq('livestock_id', livestockId)
+              .single();
+  
+            if (detailsError) {
+              console.error('Error fetching livestock owner details:', detailsError);
+              Alert.alert('Error', 'Failed to fetch auction details.');
+              return;
+            }
+  
+            const { data: highestBid, error: bidError } = await supabase
+              .from('bids')
+              .select('bidder_id')
+              .eq('livestock_id', livestockId)
+              .order('bid_amount', { ascending: false })
+              .limit(1)
+              .single();
+  
+            if (bidError) {
+              console.error('Error fetching highest bid:', bidError);
+              Alert.alert('Error', 'Failed to fetch bid details.');
+              return;
+            }
+  
+            const sellerId = livestockDetails?.owner_id;
+            const bidderId = highestBid?.bidder_id;
+  
+            if (!sellerId || !bidderId) {
+              Alert.alert('Error', 'Unable to determine seller or bidder.');
+              return;
+            }
+  
+            // Step 3: Insert notifications
+            const notifications = [
+              {
+                recipient_id: bidderId,
+                recipient_role: 'BIDDER',
+                livestock_id: livestockId,
+                message: `Your bid for ${auctionResult.livestock?.category || 'the item'} has been confirmed successfully.`,
+                is_read: false,
+                notification_type: 'CONFIRMATION',
+                created_at: new Date().toISOString(),
+              },
+              {
+                recipient_id: sellerId,
+                recipient_role: 'SELLER',
                 livestock_id: livestockId,
                 message: `The sale for ${auctionResult.livestock?.category || 'the item'} has been confirmed successfully.`,
                 is_read: false,
                 notification_type: 'CONFIRMATION',
                 created_at: new Date().toISOString(),
-              });
+              },
+            ];
   
-              if (notificationError) {
-                console.error('Error sending notification:', notificationError);
-              }
+            const { error: notificationError } = await supabase
+              .from('notifications')
+              .insert(notifications);
   
-              Alert.alert('Success', 'The sale has been confirmed successfully.');
-  
-              // Update local state
-              setIsConfirmed(true);
-  
-              // Navigate to BidderTransactionPage with the livestockId
-              navigation.navigate('BidderTransactionPage', { livestockId });
-            } catch (error) {
-              console.error('Unexpected error:', error);
-              Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+            if (notificationError) {
+              console.error('Error inserting notifications:', notificationError);
+              Alert.alert('Error', 'Failed to send notifications.');
+              return;
             }
-          },
+  
+            // Step 4: Update local state and navigate
+            setIsConfirmed(true);
+            Alert.alert('Success', 'The sale has been confirmed.');
+            navigation.navigate('BidderTransactionPage', { livestockId });
+          } catch (error) {
+            console.error('Unexpected error:', error);
+            Alert.alert('Error', 'An unexpected error occurred.');
+          } finally {
+            setLoading(false);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
   
-
+  
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -328,6 +385,4 @@ const styles = StyleSheet.create({
 });
 
 export default WinnerConfirmationPage;
-
-
 

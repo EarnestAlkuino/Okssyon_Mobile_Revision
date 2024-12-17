@@ -172,20 +172,6 @@ const PostPage = () => {
   
     setLoading(true);
     try {
-      // Current time in the Philippines timezone
-      const nowUTC = new Date();
-      const timezoneOffset = 8 * 60 * 60 * 1000; // UTC+8 in milliseconds
-      const nowPH = new Date(nowUTC.getTime() + timezoneOffset);
-  
-      // Auction end time
-      const auctionEndPH = new Date(
-        nowPH.getTime() +
-          durationDays * 24 * 60 * 60 * 1000 +
-          durationHours * 60 * 60 * 1000 +
-          durationMinutes * 60 * 1000
-      );
-  
-      // Upload files if they exist
       const imageUrl = image ? await uploadFileToSupabase(image, `image-${Date.now()}.jpg`) : null;
       const proofOfOwnershipUrl = proofOfOwnership
         ? await uploadFileToSupabase(proofOfOwnership, `proof-of-ownership-${Date.now()}.pdf`)
@@ -194,7 +180,19 @@ const PostPage = () => {
         ? await uploadFileToSupabase(vetCertificate, `vet-certificate-${Date.now()}.pdf`)
         : null;
   
-      // Insert into the database
+      // Current time in Philippines timezone (UTC+8)
+      const nowUTC = new Date();
+      const timezoneOffset = 8 * 60 * 60 * 1000; // UTC+8 in milliseconds
+      const nowPH = new Date(nowUTC.getTime() + timezoneOffset);
+  
+      // Auction end time adjusted for Philippines timezone
+      const auctionEndPH = new Date(
+        nowPH.getTime() +
+          durationDays * 24 * 60 * 60 * 1000 +
+          durationHours * 60 * 60 * 1000 +
+          durationMinutes * 60 * 1000
+      );
+  
       const { error } = await supabase.from('livestock').insert({
         owner_id: ownerId,
         category,
@@ -259,6 +257,10 @@ const PostPage = () => {
           <Picker.Item label="Cattle" value="cattle" />
           <Picker.Item label="Goat" value="goat" />
           <Picker.Item label="Sheep" value="sheep" />
+          <Picker.Item label="Carabao" value="cattle" />
+          <Picker.Item label="Horse" value="goat" />
+          <Picker.Item label="Pig" value="sheep" />
+
         </Picker>
 
         <Text style={styles.label}>Gender</Text>

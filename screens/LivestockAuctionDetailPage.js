@@ -92,9 +92,14 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
     const timer = setInterval(() => {
       const currentTime = new Date().getTime();
       const remainingTime = endTimestamp - currentTime;
+  
       if (remainingTime <= 0) {
         clearInterval(timer);
         setTimeRemaining('AUCTION_ENDED');
+        console.log('Auction ended. Declaring winner...');
+        
+        // Automatically declare the winner
+        declareWinner(itemId); // Call declareWinner with the current itemId
       } else {
         const days = Math.floor(remainingTime / (1000 * 60 * 60 * 24));
         const hours = Math.floor((remainingTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -103,8 +108,98 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
         setTimeRemaining(`${days > 0 ? `${days}d ` : ''}${hours}h ${minutes}m ${seconds}s`);
       }
     }, 1000);
+  
     return () => clearInterval(timer);
   };
+  
+  const declareWinner = async (livestockId) => {
+    try {
+      console.log('Starting winner declaration for livestock:', livestockId);
+  
+      // Step 1: Check if status is already AUCTION_ENDED or SOLD
+      const { data: livestockStatus, error: statusError } = await supabase
+        .from('livestock')
+        .select('status')
+        .eq('livestock_id', livestockId)
+        .single();
+  
+      if (statusError) {
+        console.error('Error checking auction status:', statusError.message);
+        return;
+      }
+  
+      if (livestockStatus.status === 'AUCTION_ENDED' || livestockStatus.status === 'SOLD') {
+        console.log('Winner already declared or auction ended. Exiting...');
+        return; // Exit if already ended or sold
+      }
+  
+      // Step 2: Fetch the highest bid
+      const { data: highestBid, error: bidError } = await supabase
+        .from('bids')
+        .select('bidder_id, bid_amount')
+        .eq('livestock_id', livestockId)
+        .order('bid_amount', { ascending: false })
+        .limit(1)
+        .single();
+  
+      if (bidError) {
+        console.error('Error fetching highest bid:', bidError.message);
+        return;
+      }
+  
+      if (!highestBid) {
+        console.warn('No bids found for this auction. Marking as AUCTION_ENDED.');
+        await supabase
+          .from('livestock')
+          .update({ status: 'AUCTION_ENDED' })
+          .eq('livestock_id', livestockId);
+        return;
+      }
+  
+      // Step 3: Update status to AUCTION_ENDED
+      const { error: updateError } = await supabase
+        .from('livestock')
+        .update({ status: 'AUCTION_ENDED' })
+        .eq('livestock_id', livestockId);
+  
+      if (updateError) {
+        console.error('Error updating livestock status:', updateError.message);
+        return;
+      }
+  
+      console.log('Livestock status updated to AUCTION_ENDED.');
+  
+      // Step 4: Send a single notification to the winner and seller
+      const notifications = [
+        {
+          recipient_id: highestBid.bidder_id,
+          recipient_role: 'BIDDER',
+          livestock_id: livestockId,
+          message: `Congratulations! You won the auction with a bid of ₱${highestBid.bid_amount.toLocaleString()}.`,
+          is_read: false,
+          notification_type: 'AUCTION_END',
+          created_at: new Date(),
+        },
+        {
+          recipient_id: livestockStatus.owner_id,
+          recipient_role: 'SELLER',
+          livestock_id: livestockId,
+          message: `Your auction has ended. Winning bid: ₱${highestBid.bid_amount.toLocaleString()}.`,
+          is_read: false,
+          notification_type: 'AUCTION_END',
+          created_at: new Date(),
+        },
+      ];
+  
+      await supabase.from('notifications').insert(notifications);
+      console.log('Notifications sent successfully.');
+  
+    } catch (error) {
+      console.error('Unexpected error in declareWinner:', error.message);
+    }
+  };
+  
+  
 
   const openDrawer = () => setDrawerVisible(true);
   const closeDrawer = () => setDrawerVisible(false);
