@@ -25,12 +25,10 @@ const AuctionPage = ({ navigation, route }) => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('livestock')
-        .select('*')
-        .eq('status', 'AVAILABLE')
-        .neq('category', '')
-        .eq('category', category.toLowerCase())
-        .not('starting_price', 'is', null); // Ensure starting price exists
+      .from('livestock')
+      .select('*')
+      .eq('category', category)
+      .eq('status', 'AVAILABLE'); // Only fetch livestock with 'AVAILABLE' status
   
       if (error) {
         console.error('Error fetching data:', error.message);
