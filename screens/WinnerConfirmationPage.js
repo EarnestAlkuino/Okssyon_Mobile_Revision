@@ -174,10 +174,20 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
               return;
             }
   
-            // Step 4: Update local state and navigate
+            // Step 4: Conditional navigation based on the current user role
             setIsConfirmed(true);
             Alert.alert('Success', 'The sale has been confirmed.');
-            navigation.navigate('BidderTransactionPage', { livestockId });
+  
+            if (currentUserId === sellerId) {
+              // Navigate to Seller's Transaction Page
+              navigation.navigate('SellerTransactionPage', { livestockId });
+            } else if (currentUserId === bidderId) {
+              // Navigate to Bidder's Transaction Page
+              navigation.navigate('BidderTransactionPage', { livestockId });
+            } else {
+              // Fallback navigation for other users
+              navigation.navigate('HomePage');
+            }
           } catch (error) {
             console.error('Unexpected error:', error);
             Alert.alert('Error', 'An unexpected error occurred.');
@@ -190,6 +200,7 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
   };
   
   
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>

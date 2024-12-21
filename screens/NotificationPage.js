@@ -140,7 +140,7 @@ const NotificationPage = ({ navigation }) => {
  
   const handleNotificationPress = async (item) => {
     try {
-      // Mark the notification as read if it's not already read
+      // Step 1: Mark the notification as read if it's not already read
       if (item.notification_id && !item.is_read) {
         await supabase
           .from('notifications')
@@ -158,7 +158,7 @@ const NotificationPage = ({ navigation }) => {
         setUnreadCount((prevCount) => prevCount - 1);
       }
   
-      // Handle different notification types and navigate accordingly
+      // Step 2: Handle different notification types and navigate accordingly
       if (item.notification_type === 'AUCTION_END') {
         if (item.recipient_role === 'BIDDER') {
           // Navigate to WinnerConfirmationPage if the user is the winning bidder
@@ -168,7 +168,7 @@ const NotificationPage = ({ navigation }) => {
           navigation.navigate('SellerTransactionPage', { livestockId: item.livestock_id });
         }
       } else if (item.notification_type === 'NEW_FORUM_QUESTION' || item.notification_type === 'NEW_FORUM_ANSWER') {
-        // Fetch owner_id if the recipient is a seller
+        // Step 3: Fetch owner_id if the recipient is a seller
         let ownerId = item.user_id;
   
         if (item.recipient_role === 'SELLER') {
@@ -199,15 +199,17 @@ const NotificationPage = ({ navigation }) => {
           userId: ownerId,
         });
       } else if (item.livestock_id) {
-        // Default navigation to LivestockAuctionDetailPage
+        // Step 4: Default navigation to LivestockAuctionDetailPage
         navigation.navigate('LivestockAuctionDetailPage', { itemId: item.livestock_id });
       } else {
         console.warn('Unhandled notification type:', item.notification_type);
       }
     } catch (error) {
       console.error('Error handling notification press:', error.message);
+      Alert.alert('Error', 'Something went wrong while processing the notification.');
     }
   };
+  
   
  
  

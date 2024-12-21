@@ -35,7 +35,7 @@ const ActionButtons = ({ isCreator, handleAsk, handleBid, handleEdit, handleDele
 
 const styles = StyleSheet.create({
   buttonContainer: {
-    marginTop: 20,
+    marginTop: 10,
   },
   editButton: {
     flexDirection: 'row',

@@ -34,12 +34,12 @@ const styles = StyleSheet.create({
   },
   notificationButton: {
     position: 'relative',
-    padding: 5,
+    padding: 10,
   },
   badgeContainer: {
     position: 'absolute',
     top: -5,
-    right: -10,
+    right: -7,
     backgroundColor: '#FF0000',
     borderRadius: 12,
     width: 20,
