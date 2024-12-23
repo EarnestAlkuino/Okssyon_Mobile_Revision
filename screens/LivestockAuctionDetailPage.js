@@ -85,6 +85,41 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
     };
 
     fetchItem();
+    // Realtime subscriptions
+    const itemSubscription = supabase
+      .channel('livestock-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'livestock', filter: `livestock_id=eq.${itemId}` },
+        (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            setItem((prevItem) => ({
+              ...prevItem,
+              ...payload.new,
+            }));
+          }
+        }
+      )
+      .subscribe();
+
+    const bidSubscription = supabase
+      .channel('bids-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bids', filter: `livestock_id=eq.${itemId}` },
+        (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            fetchLatestBid(itemId);
+            fetchBidCount(itemId);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      itemSubscription.unsubscribe();
+      bidSubscription.unsubscribe();
+    };
   }, [itemId]);
 
   const startCountdown = (endTime) => {

@@ -44,6 +44,44 @@ const AuctionPage = ({ navigation, route }) => {
     setLoading(false);
   };
   
+  // Add real-time subscription
+  useEffect(() => {
+    const subscription = supabase
+      .channel('livestock-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'livestock' },
+        (payload) => {
+          const { eventType, new: newData, old: oldData } = payload;
+  
+          setLivestockData((prevData) => {
+            if (eventType === 'INSERT' && newData.category === category && newData.status === 'AVAILABLE') {
+              return [newData, ...prevData];
+            }
+            if (eventType === 'UPDATE') {
+              if (newData.category === category && newData.status === 'AVAILABLE') {
+                return prevData.map((item) =>
+                  item.livestock_id === newData.livestock_id ? newData : item
+                );
+              } else {
+                return prevData.filter((item) => item.livestock_id !== oldData.livestock_id);
+              }
+            }
+            if (eventType === 'DELETE') {
+              return prevData.filter((item) => item.livestock_id !== oldData.livestock_id);
+            }
+            return prevData;
+          });
+        }
+      )
+      .subscribe();
+  
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [category]);
+  
+
   useEffect(() => {
     if (isFocused) {
       fetchLivestockData();
@@ -71,7 +109,7 @@ const AuctionPage = ({ navigation, route }) => {
             <Text style={styles.detailValue}>Location - {item.location || 'Not specified'}</Text>
           </View>
           <View style={styles.detailsRow}>
-            <Icon name="scale-bathroom" size={16} color="#4A5568" /> {/* Updated weight icon */}
+            <Icon name="scale-bathroom" size={16} color="#4A5568" />
             <Text style={styles.detailValue}>Weight - {item.weight} kg</Text>
           </View>
           <View style={styles.detailsRow}>
@@ -86,7 +124,7 @@ const AuctionPage = ({ navigation, route }) => {
       </TouchableOpacity>
     ),
     [handleLivestockSelect]
-  );
+  );  
 
   if (loading) {
     return (

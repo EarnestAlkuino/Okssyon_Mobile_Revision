@@ -21,9 +21,9 @@ const BidPage = ({ route, navigation }) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const fetchInitialBidData = async () => {
+    const fetchInitialData = async () => {
       try {
-        // Fetch the highest bid
+        // Fetch highest bid
         const { data: highestBidData, error: highestBidError } = await supabase
           .from('bids')
           .select('bid_amount')
@@ -32,25 +32,59 @@ const BidPage = ({ route, navigation }) => {
           .limit(1);
 
         if (highestBidError) throw highestBidError;
+
         if (highestBidData.length > 0) {
           setCurrentHighestBid(highestBidData[0].bid_amount);
         }
 
-        // Fetch the unique user count for bidders on this item
-        const { count, error: userCountError } = await supabase
-          .from('bids')
-          .select('bidder_id', { count: 'exact', distinct: true })
-          .eq('livestock_id', item.livestock_id);
-
-        if (userCountError) throw userCountError;
-        setUserCount(count);
+        // Fetch bidder count
+        await updateBidderCount();
       } catch (error) {
-        console.error('Error fetching initial bid data:', error);
+        console.error('Error fetching data:', error);
       }
     };
 
-    fetchInitialBidData();
+    const setupRealtimeSubscription = () => {
+      const subscription = supabase
+        .channel('bids-realtime')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'bids', filter: `livestock_id=eq.${item.livestock_id}` },
+          (payload) => {
+            if (payload.eventType === 'INSERT') {
+              const newBidAmount = payload.new.bid_amount;
+              setCurrentHighestBid((prevBid) =>
+                newBidAmount > prevBid ? newBidAmount : prevBid
+              );
+              updateBidderCount();
+            }
+          }
+        )
+        .subscribe();
+
+      return () => subscription.unsubscribe();
+    };
+
+    fetchInitialData();
+    const unsubscribe = setupRealtimeSubscription();
+
+    return unsubscribe;
   }, [item.livestock_id]);
+
+  const updateBidderCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('bids')
+        .select('bidder_id', { count: 'exact', distinct: true })
+        .eq('livestock_id', item.livestock_id);
+
+      if (error) throw error;
+
+      setUserCount(count || 0);
+    } catch (error) {
+      console.error('Error updating bidder count:', error);
+    }
+  };
 
   const handlePlaceBid = async () => {
     if (!item) {
@@ -58,18 +92,18 @@ const BidPage = ({ route, navigation }) => {
       navigation.goBack();
       return;
     }
-  
+
     if (userId === ownerId) {
       Alert.alert('Error', 'You cannot place a bid on your own auction.');
       return;
     }
-  
+
     const parsedBidAmount = parseFloat(bidAmount);
     if (isNaN(parsedBidAmount)) {
       Alert.alert('Invalid Bid', 'Please enter a valid bid amount.');
       return;
     }
-  
+
     if (parsedBidAmount <= currentHighestBid) {
       Alert.alert(
         'Invalid Bid',
@@ -77,116 +111,39 @@ const BidPage = ({ route, navigation }) => {
       );
       return;
     }
-  
+
     setLoading(true);
-  
+
     try {
-      // Fetch the current highest bidder
-      const { data: highestBidderData, error: highestBidderError } = await supabase
-        .from('bids')
-        .select('bidder_id, bid_amount')
-        .eq('livestock_id', item.livestock_id)
-        .order('bid_amount', { ascending: false })
-        .limit(1);
-  
-      if (highestBidderError) {
-        throw highestBidderError;
-      }
-  
-      const currentHighestBidder = highestBidderData?.[0]?.bidder_id;
-  
-      // Insert the new bid into the 'bids' table
       const { error: bidError } = await supabase.from('bids').insert([{
         livestock_id: item.livestock_id,
         bidder_id: userId,
         bid_amount: parsedBidAmount,
         status: 'pending',
       }]);
-  
-      if (bidError) {
-        throw bidError;
-      }
-  
-      // Update the highest bid state after placing the bid
+
+      if (bidError) throw bidError;
+
+      Alert.alert(
+        'Success',
+        `You have successfully placed a bid of ₱${parsedBidAmount.toLocaleString()}.`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }] // Automatically close on success
+      );
+
       setCurrentHighestBid(parsedBidAmount);
-  
-      // Notify the seller about the new bid
-      if (userId !== ownerId) {
-        const sellerMessage = `A new bid of ₱${parsedBidAmount.toLocaleString()} has been placed on your livestock!`;
-        const { error: sellerNotifError } = await supabase
-          .from('notifications')
-          .insert([{
-            livestock_id: item.livestock_id,
-            recipient_id: ownerId,  // Seller's ID
-            recipient_role: 'SELLER',
-            notification_type: 'NEW_BID',  // Enum for NEW_BID
-            message: sellerMessage,
-            is_read: false,
-          }]);
-  
-        if (sellerNotifError) {
-          console.error('Error inserting seller notification:', sellerNotifError);
-        } else {
-          console.log('Notification inserted for seller successfully!');
-        }
-      }
-  
-      // Notify the current highest bidder about being outbid
-      if (currentHighestBidder && currentHighestBidder !== userId) {
-        const outbidMessage = `You have been outbid on the auction for ${item.category || 'this item'}. Place a higher bid to win!`;
-        const { error: outbidNotifError } = await supabase
-          .from('notifications')
-          .insert([{
-            livestock_id: item.livestock_id,
-            recipient_id: currentHighestBidder,  // Previous highest bidder
-            recipient_role: 'BIDDER',
-            notification_type: 'OUTBID',  // Enum for OUTBID
-            message: outbidMessage,
-            is_read: false,
-          }]);
-  
-        if (outbidNotifError) {
-          console.error('Error inserting outbid notification:', outbidNotifError);
-        } else {
-          console.log('Notification inserted for outbid successfully!');
-        }
-      }
-  
-      // Notify the bidder about the success of their bid
-      const bidderMessage = `You have successfully placed a bid of ₱${parsedBidAmount.toLocaleString()} on this livestock!`;
-      const { error: bidderNotifError } = await supabase
-        .from('notifications')
-        .insert([{
-          livestock_id: item.livestock_id,
-          recipient_id: userId,  // Current bidder's ID
-          recipient_role: 'BIDDER',
-          notification_type: 'NEW_BID',  // Enum for NEW_BID
-          message: bidderMessage,
-          is_read: false,
-        }]);
-  
-      if (bidderNotifError) {
-        console.error('Error inserting bidder notification:', bidderNotifError);
-      } else {
-      }
-  
-      // Success Alert
-      Alert.alert('Success', `You have successfully placed a bid of ₱${parsedBidAmount.toLocaleString()}.`);
-  
     } catch (error) {
-      console.error('Error placing bid or sending notification:', error);
-      Alert.alert('Error', 'Could not place your bid or send notification. Please try again later.');
+      console.error('Error placing bid:', error);
+      Alert.alert('Error', 'Could not place your bid. Please try again later.');
     } finally {
       setLoading(false);
     }
   };
-  
-  
 
   const addToBid = (amount) => {
     const newBid = (parseInt(bidAmount || 0, 10) + amount).toString();
     setBidAmount(newBid);
   };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -202,11 +159,13 @@ const BidPage = ({ route, navigation }) => {
       <View style={styles.bidInfoContainer}>
         <View style={styles.bidItem}>
           <Text style={styles.bidLabel}>Highest Bid</Text>
-          <Text style={styles.bidValue}>₱{currentHighestBid.toLocaleString()}</Text>
+          <Text style={styles.bidValue}>
+            {currentHighestBid ? `₱${currentHighestBid.toLocaleString()}` : 'N/A'}
+          </Text>
         </View>
         <View style={styles.bidItem}>
           <Text style={styles.bidLabel}>No. of Bidders</Text>
-          <Text style={styles.bidValue}>{userCount}</Text>
+          <Text style={styles.bidValue}>{userCount || '0'}</Text>
         </View>
       </View>
 
@@ -221,7 +180,11 @@ const BidPage = ({ route, navigation }) => {
 
       <View style={styles.presetBidContainer}>
         {[1000, 3000, 5000, 10000].map((amount) => (
-          <TouchableOpacity key={amount} style={styles.presetButton} onPress={() => addToBid(amount)}>
+          <TouchableOpacity
+            key={amount}
+            style={styles.presetButton}
+            onPress={() => addToBid(amount)}
+          >
             <Text style={styles.presetButtonText}>+₱{amount.toLocaleString()}</Text>
           </TouchableOpacity>
         ))}
@@ -232,7 +195,11 @@ const BidPage = ({ route, navigation }) => {
         onPress={handlePlaceBid}
         disabled={loading}
       >
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Submit Bid</Text>}
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Submit Bid</Text>
+        )}
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );
