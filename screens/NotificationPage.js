@@ -141,22 +141,27 @@ const NotificationPage = ({ navigation }) => {
   const handleNotificationPress = async (item) => {
     try {
       // Step 1: Mark the notification as read if it's not already read
-      if (item.notification_id && !item.is_read) {
-        await supabase
+      if (!item.is_read) {
+        const { error } = await supabase
           .from('notifications')
           .update({ is_read: true })
           .eq('notification_id', item.notification_id);
-        
-        // Update local notifications state
-        setNotifications((prevNotifications) =>
-          prevNotifications.map((notif) =>
-            notif.notification_id === item.notification_id ? { ...notif, is_read: true } : notif
-          )
-        );
-        
-        // Update unread count
-        setUnreadCount((prevCount) => prevCount - 1);
+      
+        if (error) {
+          console.error('Failed to update is_read status:', error.message);
+        } else {
+          // Update local state
+          setNotifications((prevNotifications) =>
+            prevNotifications.map((notif) =>
+              notif.notification_id === item.notification_id
+                ? { ...notif, is_read: true }
+                : notif
+            )
+          );
+          setUnreadCount((prevCount) => prevCount - 1);
+        }
       }
+      
   
       // Step 2: Handle different notification types and navigate accordingly
       if (item.notification_type === 'AUCTION_END') {

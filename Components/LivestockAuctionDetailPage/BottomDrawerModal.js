@@ -108,59 +108,47 @@ const BottomDrawerModal = ({
       // Notify the seller
       if (userId !== ownerId) {
         const sellerMessage = `A new bid of ₱${parsedBidAmount.toLocaleString()} has been placed on your livestock!`;
-        const { error: sellerNotifError } = await supabase
-          .from('notifications')
-          .insert([{
-            livestock_id: item.livestock_id,
-            recipient_id: ownerId,
-            recipient_role: 'SELLER',
-            notification_type: 'NEW_BID',
-            message: sellerMessage,
-            is_read: false,
-          }]);
-  
-        if (sellerNotifError) {
-          console.error('Error inserting seller notification:', sellerNotifError);
-        }
+        await supabase.from('notifications').insert([{
+          livestock_id: item.livestock_id,
+          recipient_id: ownerId,
+          recipient_role: 'SELLER',
+          notification_type: 'NEW_BID',
+          message: sellerMessage,
+          is_read: false,
+        }]);
       }
   
       // Notify the current highest bidder about being outbid
       if (currentHighestBidder && currentHighestBidder !== userId) {
         const outbidMessage = `You have been outbid on the auction for ${item.category || 'this item'}. Place a higher bid to win!`;
-        const { error: outbidNotifError } = await supabase
-          .from('notifications')
-          .insert([{
-            livestock_id: item.livestock_id,
-            recipient_id: currentHighestBidder,
-            recipient_role: 'BIDDER',
-            notification_type: 'OUTBID',
-            message: outbidMessage,
-            is_read: false,
-          }]);
-  
-        if (outbidNotifError) {
-          console.error('Error inserting outbid notification:', outbidNotifError);
-        }
+        await supabase.from('notifications').insert([{
+          livestock_id: item.livestock_id,
+          recipient_id: currentHighestBidder,
+          recipient_role: 'BIDDER',
+          notification_type: 'OUTBID',
+          message: outbidMessage,
+          is_read: false,
+        }]);
       }
   
       // Notify the current bidder
       const bidderMessage = `You have successfully placed a bid of ₱${parsedBidAmount.toLocaleString()} on this livestock!`;
-      const { error: bidderNotifError } = await supabase
-        .from('notifications')
-        .insert([{
-          livestock_id: item.livestock_id,
-          recipient_id: userId,
-          recipient_role: 'BIDDER',
-          notification_type: 'NEW_BID',
-          message: bidderMessage,
-          is_read: false,
-        }]);
-  
-      if (bidderNotifError) {
-        console.error('Error inserting bidder notification:', bidderNotifError);
-      }
+      await supabase.from('notifications').insert([{
+        livestock_id: item.livestock_id,
+        recipient_id: userId,
+        recipient_role: 'BIDDER',
+        notification_type: 'NEW_BID',
+        message: bidderMessage,
+        is_read: false,
+      }]);
   
       Alert.alert('Success', `You have successfully placed a bid of ₱${parsedBidAmount.toLocaleString()}.`);
+  
+      // **Clear bid amount after successful bid**
+      setBidAmount('');
+  
+      // **Automatically close the modal**
+      onClose();
   
     } catch (error) {
       console.error('Error placing bid or sending notification:', error);
@@ -170,7 +158,6 @@ const BottomDrawerModal = ({
     }
   };
   
- 
  
  
   const addToBid = (amount) => {

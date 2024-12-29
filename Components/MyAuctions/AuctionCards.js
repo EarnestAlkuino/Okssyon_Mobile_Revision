@@ -10,8 +10,12 @@ const AuctionCard = ({ auction, onPress }) => {
           {auction.title || 'Auction Title'}
         </Text>
         <Text style={styles.status}>{auction.status || 'Status'}</Text>
-        <Text style={styles.price}>Starting Price: ₱{auction.starting_price?.toLocaleString()}</Text>
-        <Text style={styles.date}>Ends on: {new Date(auction.auction_end).toLocaleDateString()}</Text>
+        <Text style={styles.price}>
+          Starting Price: ₱{auction.starting_price?.toLocaleString()}
+        </Text>
+        <Text style={styles.date}>
+          Ends on: {new Date(auction.auction_end).toLocaleDateString()}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -29,34 +33,34 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 2,
-    padding: 10,
+    padding: 16,
     alignItems: 'center',
+    gap: 16,
+    height: 140, // Increased card height
   },
   image: {
-    width: 80,
-    height: 80,
+    width: 100,
+    height: 100,
     borderRadius: 8,
-    marginRight: 10,
   },
   detailsContainer: {
     flex: 1,
+    justifyContent: 'space-around',
+    gap: 4,
   },
   title: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: '#2C3E50',
-    marginBottom: 4,
   },
   status: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 4,
   },
   price: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#405E40',
-    marginBottom: 4,
+    fontSize: 13, // Lower font size for starting price
+    fontWeight: '400',
+    color: '#4A5568',
   },
   date: {
     fontSize: 12,

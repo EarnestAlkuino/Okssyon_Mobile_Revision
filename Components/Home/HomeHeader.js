@@ -38,8 +38,8 @@ const styles = StyleSheet.create({
   },
   badgeContainer: {
     position: 'absolute',
-    top: -5,
-    right: -7,
+    top: 5,
+    right: 2,
     backgroundColor: '#FF0000',
     borderRadius: 12,
     width: 20,
