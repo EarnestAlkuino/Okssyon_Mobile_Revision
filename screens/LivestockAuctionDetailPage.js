@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Alert, ActivityIndicator, StyleSheet } from 'react-native';
-import { supabase } from '../supabase';
+import { supabase } from '../supabase'; // Import your Supabase client
 import AuctionDetailsHeader from '../Components/LivestockAuctionDetailPage/AuctionDetailsHeader';
 import AuctionImage from '../Components/LivestockAuctionDetailPage/AuctionImage';
 import AuctionDetails from '../Components/LivestockAuctionDetailPage/AuctionDetails';
 import SellerInfo from '../Components/LivestockAuctionDetailPage/SellerInfo';
-import PriceDetails from '../Components/LivestockAuctionDetailPage/PriceDetails'; // Updated Import
+import PriceDetails from '../Components/LivestockAuctionDetailPage/PriceDetails'; 
 import CountdownTimer from '../Components/LivestockAuctionDetailPage/CountdownTimer';
 import ActionButtons from '../Components/LivestockAuctionDetailPage/ActionButtons';
 import BottomDrawerModal from '../Components/LivestockAuctionDetailPage/BottomDrawerModal';
@@ -19,8 +19,8 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [isDrawerVisible, setDrawerVisible] = useState(false);
   const [userCount, setUserCount] = useState(0);
-  
 
+  // Fetch userId if needed
   useEffect(() => {
     const fetchUserIdIfNeeded = async () => {
       if (!userId) {
@@ -36,6 +36,7 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
     fetchUserIdIfNeeded();
   }, [userId]);
 
+  // Fetch auction and bid data
   useEffect(() => {
     const fetchItem = async () => {
       setLoading(true);
@@ -85,56 +86,79 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
     };
 
     fetchItem();
-    // Realtime subscriptions
+
+    // Real-time subscriptions for livestock and bids
     const itemSubscription = supabase
       .channel('livestock-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'livestock', filter: `livestock_id=eq.${itemId}` },
-        (payload) => {
-          if (payload.eventType === 'UPDATE') {
-            setItem((prevItem) => ({
-              ...prevItem,
-              ...payload.new,
-            }));
-          }
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'livestock',
+        filter: `livestock_id=eq.${itemId}`,
+      }, (payload) => {
+        if (payload.eventType === 'UPDATE') {
+          setItem((prevItem) => ({
+            ...prevItem,
+            ...payload.new,
+          }));
         }
-      )
+      })
       .subscribe();
 
     const bidSubscription = supabase
       .channel('bids-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'bids', filter: `livestock_id=eq.${itemId}` },
-        (payload) => {
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            fetchLatestBid(itemId);
-            fetchBidCount(itemId);
-          }
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'bids',
+        filter: `livestock_id=eq.${itemId}`,
+      }, (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          fetchLatestBid(itemId);
+          fetchBidCount(itemId);
         }
-      )
+      })
       .subscribe();
 
+    // Cleanup subscriptions
     return () => {
       itemSubscription.unsubscribe();
       bidSubscription.unsubscribe();
     };
   }, [itemId]);
 
+  // Real-time subscription for winner notifications using channel()
+  useEffect(() => {
+    const winnerNotifChannel = supabase
+      .channel('winner_notifications-realtime')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'winner_notifications',
+      }, (payload) => {
+        console.log('New winner notification:', payload);
+        // Update your UI with the new notification or display it
+      })
+      .subscribe();
+  
+    // Cleanup subscription when component unmounts
+    return () => {
+      supabase.removeChannel(winnerNotifChannel);
+    };
+  }, []);
+  
+
   const startCountdown = (endTime) => {
     const endTimestamp = new Date(endTime).getTime();
     const timer = setInterval(() => {
       const currentTime = new Date().getTime();
       const remainingTime = endTimestamp - currentTime;
-  
+
       if (remainingTime <= 0) {
         clearInterval(timer);
         setTimeRemaining('AUCTION_ENDED');
-        console.log('Auction ended. Declaring winner...');
-        
-        // Automatically declare the winner
-        declareWinner(itemId); // Call declareWinner with the current itemId
+        console.log('AUCTION_ENDED. Declaring winner...');
+        declareWinner(itemId);
       } else {
         const days = Math.floor(remainingTime / (1000 * 60 * 60 * 24));
         const hours = Math.floor((remainingTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -143,99 +167,190 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
         setTimeRemaining(`${days > 0 ? `${days}d ` : ''}${hours}h ${minutes}m ${seconds}s`);
       }
     }, 1000);
-  
+
     return () => clearInterval(timer);
   };
-  
-  const declareWinner = async (livestockId) => {
+
+  const declareWinner = async (itemId) => {
     try {
-      console.log('Starting winner declaration for livestock:', livestockId);
+      console.log("Fetching the highest bid for item:", itemId);
   
-      // Step 1: Check if status is already AUCTION_ENDED or SOLD
-      const { data: livestockStatus, error: statusError } = await supabase
-        .from('livestock')
-        .select('status')
-        .eq('livestock_id', livestockId)
-        .single();
-  
-      if (statusError) {
-        console.error('Error checking auction status:', statusError.message);
-        return;
-      }
-  
-      if (livestockStatus.status === 'AUCTION_ENDED' || livestockStatus.status === 'SOLD') {
-        console.log('Winner already declared or auction ended. Exiting...');
-        return; // Exit if already ended or sold
-      }
-  
-      // Step 2: Fetch the highest bid
-      const { data: highestBid, error: bidError } = await supabase
+      // ✅ Get the highest bid for the item
+      const { data: highestBidData, error } = await supabase
         .from('bids')
         .select('bidder_id, bid_amount')
-        .eq('livestock_id', livestockId)
+        .eq('livestock_id', itemId)
         .order('bid_amount', { ascending: false })
-        .limit(1)
+        .limit(1);
+  
+      if (error) {
+        console.error('❌ Error fetching highest bid:', error);
+        throw new Error('Failed to retrieve highest bid.');
+      }
+  
+      console.log("✅ Highest bid data:", highestBidData);
+  
+      if (!highestBidData || highestBidData.length === 0) {
+        console.error('⚠ No bids were placed.');
+        throw new Error('No bids were placed.');
+      }
+  
+      const winnerId = highestBidData[0].bidder_id;
+      console.log("🏆 Winner ID found:", winnerId);
+  
+      // ✅ Fetch Seller ID (auction owner)
+      const { data: itemData, error: itemError } = await supabase
+        .from('livestock')
+        .select('owner_id')
+        .eq('livestock_id', itemId)
         .single();
   
-      if (bidError) {
-        console.error('Error fetching highest bid:', bidError.message);
-        return;
+      if (itemError || !itemData) {
+        console.error('❌ Error fetching auction owner:', itemError?.message);
+        throw new Error('Failed to retrieve auction owner.');
       }
   
-      if (!highestBid) {
-        console.warn('No bids found for this auction. Marking as AUCTION_ENDED.');
-        await supabase
-          .from('livestock')
-          .update({ status: 'AUCTION_ENDED' })
-          .eq('livestock_id', livestockId);
-        return;
-      }
+      const sellerId = itemData.owner_id;
+      console.log("🛒 Seller ID:", sellerId, "🏆 Winner ID:", winnerId);
   
-      // Step 3: Update status to AUCTION_ENDED
+      // ✅ Update item status to 'AUCTION_ENDED'
       const { error: updateError } = await supabase
         .from('livestock')
-        .update({ status: 'AUCTION_ENDED' })
-        .eq('livestock_id', livestockId);
+        .update({ status: 'AUCTION_ENDED', winner_id: winnerId })
+        .eq('livestock_id', itemId);
   
       if (updateError) {
-        console.error('Error updating livestock status:', updateError.message);
+        console.error('❌ Error updating item status:', updateError);
+        throw new Error('Failed to declare winner.');
+      }
+  
+      console.log("✅ Item status updated successfully.");
+  
+      // ✅ Send notifications
+      await sendWinnerNotifications(itemId, winnerId);  // Notify the winner (bidder)
+      await sendNotificationToSeller(  // Notify the seller (owner)
+        itemId,
+        sellerId,
+        'AUCTION_ENDED_OWNER',
+        'The auction has ended. You have a winner for your livestock.'
+      );
+  
+    } catch (error) {
+      console.error('❌ Error in declareWinner:', error.message);
+    }
+  };
+  
+  const sendWinnerNotifications = async (itemId, winnerId) => {
+    try {
+      console.log("📌 Fetching auction owner for item:", itemId);
+  
+      // ✅ Fetch seller ID (auction owner)
+      const { data: itemData, error: itemError } = await supabase
+        .from('livestock')
+        .select('owner_id')
+        .eq('livestock_id', itemId)
+        .single();
+  
+      if (itemError || !itemData) {
+        console.error('❌ Error fetching auction owner:', itemError?.message);
+        throw new Error('Failed to retrieve auction owner.');
+      }
+  
+      const sellerId = itemData.owner_id;
+      console.log("✅ Seller ID:", sellerId, "🏆 Winner ID:", winnerId);
+  
+      // ✅ Ensure **only the winner** receives `AUCTION_ENDED_WINNER`
+      if (winnerId === sellerId) {
+        console.warn("⚠ The seller is also the highest bidder. Skipping winner notification.");
+        return; // Prevent sending `AUCTION_ENDED_WINNER` to the seller
+      }
+  
+      // ✅ Check if the notification already exists
+      const { data: existingNotif, error: checkError } = await supabase
+        .from('winner_notifications')
+        .select('id')
+        .eq('livestock_id', itemId)
+        .eq('notification_type', 'AUCTION_ENDED_WINNER')
+        .maybeSingle();
+        
+      if (existingNotif) {
+        console.log('⚠ Winner notification already exists. Skipping duplicate insertion.');
         return;
       }
   
-      console.log('Livestock status updated to AUCTION_ENDED.');
-  
-      // Step 4: Send a single notification to the winner and seller
-      const notifications = [
+      // ✅ Insert the notification **ONLY for the winner**
+      const { error: insertError } = await supabase.from('winner_notifications').insert([
         {
-          recipient_id: highestBid.bidder_id,
-          recipient_role: 'BIDDER',
-          livestock_id: livestockId,
-          message: `Congratulations! You won the auction with a bid of ₱${highestBid.bid_amount.toLocaleString()}.`,
+          livestock_id: itemId,
+          winner_id: winnerId, // ✅ Ensure this goes to the winner (bidder)
+          message: '🎉 Congratulations! You are the winner of the auction!',
+          notification_type: 'AUCTION_ENDED_WINNER',
+          role: 'bidder',
           is_read: false,
-          notification_type: 'AUCTION_END',
-          created_at: new Date(),
-        },
-        {
-          recipient_id: livestockStatus.owner_id,
-          recipient_role: 'SELLER',
-          livestock_id: livestockId,
-          message: `Your auction has ended. Winning bid: ₱${highestBid.bid_amount.toLocaleString()}.`,
-          is_read: false,
-          notification_type: 'AUCTION_END',
-          created_at: new Date(),
-        },
-      ];
+        }
+      ]);
   
-      await supabase.from('notifications').insert(notifications);
-      console.log('Notifications sent successfully.');
+      if (insertError) {
+        console.error('❌ Error inserting winner notification:', insertError.message);
+        throw new Error('Failed to send winner notification.');
+      }
   
+      console.log("✅ AUCTION_ENDED_WINNER notification sent successfully to:", winnerId);
     } catch (error) {
-      console.error('Unexpected error in declareWinner:', error.message);
+      console.error('❌ Error in sendWinnerNotifications:', error.message);
     }
   };
   
   
-
+  const sendNotificationToSeller = async (livestockId, sellerId, type, message) => {
+    try {
+      console.log(`🔹 Checking existing ${type} notification for livestock: ${livestockId}`);
+  
+      // ✅ Check if notification already exists
+      const { data: existingNotif, error: checkError } = await supabase
+        .from('notifications')
+        .select('id')
+        .eq('livestock_id', livestockId)
+        .eq('notification_type', type)
+        .maybeSingle();
+  
+      if (checkError) {
+        console.error(`❌ Error checking existing ${type} notification:`, checkError.message);
+        return;
+      }
+  
+      if (existingNotif) {
+        console.log(`⚠ ${type} notification already exists. Skipping duplicate insertion.`);
+        return;
+      }
+  
+      // ✅ Insert new notification if it doesn't exist
+      console.log(`🔹 Sending ${type} notification for livestock: ${livestockId}`);
+  
+      const { error } = await supabase.from('notifications').insert([
+        {
+          livestock_id: livestockId,
+          seller_id: sellerId,
+          message: message,
+          notification_type: type,
+          is_read: false,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+  
+      if (error) {
+        console.error(`❌ Error sending ${type} notification to seller:`, error.message);
+      } else {
+        console.log(`✅ ${type} notification sent successfully to seller (${sellerId}).`);
+      }
+    } catch (err) {
+      console.error(`❌ Unexpected error in ${type} notification:`, err.message);
+    }
+  };
+  
+  
+  
+  
   const openDrawer = () => setDrawerVisible(true);
   const closeDrawer = () => setDrawerVisible(false);
 

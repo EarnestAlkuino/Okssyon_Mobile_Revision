@@ -87,116 +87,70 @@ const WinnerConfirmationPage = ({ route, navigation }) => {
       return;
     }
   
-    Alert.alert('Confirm Sale', 'Are you sure you want to confirm this sale?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Confirm',
-        onPress: async () => {
-          try {
-            setLoading(true);
+    try {
+      setLoading(true);
   
-            // Step 1: Update the livestock status to SOLD
-            const { error: updateError } = await supabase
-              .from('livestock')
-              .update({ status: 'SOLD' })
-              .eq('livestock_id', livestockId);
+      // Step 1: Update livestock status to SOLD
+      const { error: updateError } = await supabase
+        .from('livestock')
+        .update({ status: 'SOLD' })
+        .eq('livestock_id', livestockId);
   
-            if (updateError) {
-              console.error('Error updating livestock status:', updateError);
-              Alert.alert('Error', 'Failed to confirm the sale.');
-              return;
-            }
+      if (updateError) {
+        console.error('Error updating livestock status:', updateError);
+        Alert.alert('Error', 'Failed to confirm the sale.');
+        return;
+      }
   
-            // Step 2: Fetch recipient IDs for the owner and the highest bidder
-            const { data: livestockDetails, error: detailsError } = await supabase
-              .from('livestock')
-              .select('owner_id')
-              .eq('livestock_id', livestockId)
-              .single();
+      // Step 2: Fetch seller ID (owner of the auction)
+      const { data: livestockDetails, error: detailsError } = await supabase
+        .from('livestock')
+        .select('owner_id')
+        .eq('livestock_id', livestockId)
+        .single();
   
-            if (detailsError) {
-              console.error('Error fetching livestock owner details:', detailsError);
-              Alert.alert('Error', 'Failed to fetch auction details.');
-              return;
-            }
+      if (detailsError || !livestockDetails) {
+        console.error('Error fetching livestock details:', detailsError);
+        Alert.alert('Error', 'Failed to fetch auction details.');
+        return;
+      }
   
-            const { data: highestBid, error: bidError } = await supabase
-              .from('bids')
-              .select('bidder_id')
-              .eq('livestock_id', livestockId)
-              .order('bid_amount', { ascending: false })
-              .limit(1)
-              .single();
+      const sellerId = livestockDetails.owner_id;
+      if (!sellerId) {
+        Alert.alert('Error', 'Seller information is missing.');
+        return;
+      }
   
-            if (bidError) {
-              console.error('Error fetching highest bid:', bidError);
-              Alert.alert('Error', 'Failed to fetch bid details.');
-              return;
-            }
+      // Step 3: Send notification to the seller about auction confirmation
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert([
+          {
+            livestock_id: livestockId,
+            seller_id: sellerId, // Notify the seller
+            message: `The auction has been confirmed successfully by the winner.`,
+            notification_type: 'AUCTION_CONFIRMED',
+            is_read: false,
+            created_at: new Date().toISOString(),
+          },
+        ]);
   
-            const sellerId = livestockDetails?.owner_id;
-            const bidderId = highestBid?.bidder_id;
+      if (notificationError) {
+        console.error('Error inserting confirmation notification:', notificationError);
+        Alert.alert('Error', 'Failed to notify the seller.');
+        return;
+      }
   
-            if (!sellerId || !bidderId) {
-              Alert.alert('Error', 'Unable to determine seller or bidder.');
-              return;
-            }
+      // Step 4: Automatically navigate to `BidderTransactionPage` after confirmation
+      setIsConfirmed(true);
+      navigation.replace('BidderTransactionPage', { livestockId });
   
-            // Step 3: Insert notifications
-            const notifications = [
-              {
-                recipient_id: bidderId,
-                recipient_role: 'BIDDER',
-                livestock_id: livestockId,
-                message: `Your bid for ${auctionResult.livestock?.category || 'the item'} has been confirmed successfully.`,
-                is_read: false,
-                notification_type: 'CONFIRMATION',
-                created_at: new Date().toISOString(),
-              },
-              {
-                recipient_id: sellerId,
-                recipient_role: 'SELLER',
-                livestock_id: livestockId,
-                message: `The sale for ${auctionResult.livestock?.category || 'the item'} has been confirmed successfully.`,
-                is_read: false,
-                notification_type: 'CONFIRMATION',
-                created_at: new Date().toISOString(),
-              },
-            ];
-  
-            const { error: notificationError } = await supabase
-              .from('notifications')
-              .insert(notifications);
-  
-            if (notificationError) {
-              console.error('Error inserting notifications:', notificationError);
-              Alert.alert('Error', 'Failed to send notifications.');
-              return;
-            }
-  
-            // Step 4: Conditional navigation based on the current user role
-            setIsConfirmed(true);
-            Alert.alert('Success', 'The sale has been confirmed.');
-  
-            if (currentUserId === sellerId) {
-              // Navigate to Seller's Transaction Page
-              navigation.navigate('SellerTransactionPage', { livestockId });
-            } else if (currentUserId === bidderId) {
-              // Navigate to Bidder's Transaction Page
-              navigation.navigate('BidderTransactionPage', { livestockId });
-            } else {
-              // Fallback navigation for other users
-              navigation.navigate('HomePage');
-            }
-          } catch (error) {
-            console.error('Unexpected error:', error);
-            Alert.alert('Error', 'An unexpected error occurred.');
-          } finally {
-            setLoading(false);
-          }
-        },
-      },
-    ]);
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      Alert.alert('Error', 'An unexpected error occurred.');
+    } finally {
+      setLoading(false);
+    }
   };
   
   
@@ -396,4 +350,3 @@ const styles = StyleSheet.create({
 });
 
 export default WinnerConfirmationPage;
-

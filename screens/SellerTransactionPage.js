@@ -89,17 +89,20 @@ const SellerTransactionPage = ({ route, navigation }) => {
   const sendDocument = async (docType) => {
     try {
       const columnToUpdate = docType === 'Proof' ? 'proof_sent' : 'vet_cert_sent';
-      const message =
-        docType === 'Proof'
-          ? 'Proof of Ownership has been sent to the bidder.'
-          : 'Vet Certification has been sent to the bidder.';
-
+      const message = docType === 'Proof'
+        ? 'Proof of Ownership is sent.'
+        : 'Vet Certification is sent.';
+  
+      const notificationType = docType === 'Proof' ? 'PROOF_SENT_TO_BIDDER' : 'VET_CERT_SENT_TO_BIDDER';
+  
+      // Step 1: Update the livestock table
       await supabase
         .from('livestock')
         .update({ [columnToUpdate]: true })
         .eq('livestock_id', livestockId);
-
-      Alert.alert('Success', `${docType} has been sent successfully.`);
+  
+      Alert.alert('Success', `${message}`);
+  
       setTransactionSteps((prevSteps) =>
         prevSteps.map((step) =>
           step.title.includes(docType)
@@ -107,11 +110,46 @@ const SellerTransactionPage = ({ route, navigation }) => {
             : step
         )
       );
+  
+      // Step 2: Fetch the winner ID
+      const { data: winnerData, error: winnerError } = await supabase
+        .from('livestock')
+        .select('winner_id')
+        .eq('livestock_id', livestockId)
+        .single();
+  
+      if (winnerError || !winnerData?.winner_id) {
+        console.error('❌ Error fetching winner ID:', winnerError?.message);
+        return;
+      }
+  
+      const winnerId = winnerData.winner_id;
+  
+      // Step 3: Insert notification into `winner_notifications`
+      const { error: notificationError } = await supabase
+        .from('winner_notifications')
+        .insert([
+          {
+            livestock_id: livestockId,
+            message: message, // Use the distinct message
+            notification_type: notificationType, // Use distinct type
+            is_read: false,
+            created_at: new Date().toISOString(),
+            role: 'bidder',
+            winner_id: winnerId,
+          },
+        ]);
+  
+      if (notificationError) {
+        console.error(`❌ Error sending ${notificationType} notification:`, notificationError.message);
+      } else {
+        console.log(`✅ ${notificationType} notification sent successfully to ${winnerId}`);
+      }
     } catch (error) {
-      Alert.alert('Error', `Failed to send ${docType}.`);
+      console.error(`❌ Unexpected error sending ${docType}:`, error.message);
     }
   };
-
+  
   if (loading) {
     return (
       <View style={styles.loadingContainer}>

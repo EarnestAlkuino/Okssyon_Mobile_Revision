@@ -1,5 +1,6 @@
-import React from 'react';
-import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
+import { supabase } from '../../supabase';
 import CattleIcon from '../../assets/Cattle1.svg';
 import HorseIcon from '../../assets/Horse1.svg';
 import SheepIcon from '../../assets/Sheep1.svg';
@@ -8,33 +9,78 @@ import GoatIcon from '../../assets/Goat1.svg';
 import PigIcon from '../../assets/Pig1.svg';
 
 const categories = [
-  { id: '1', title: 'Cattle', Icon: CattleIcon },
-  { id: '2', title: 'Horse', Icon: HorseIcon },
-  { id: '3', title: 'Sheep', Icon: SheepIcon },
-  { id: '4', title: 'Carabao', Icon: CarabaoIcon },
-  { id: '5', title: 'Goat', Icon: GoatIcon },
-  { id: '6', title: 'Pig', Icon: PigIcon },
+  { id: 'Cattle', title: 'Cattle', Icon: CattleIcon },
+  { id: 'Horse', title: 'Horse', Icon: HorseIcon },
+  { id: 'Sheep', title: 'Sheep', Icon: SheepIcon },
+  { id: 'Carabao', title: 'Carabao', Icon: CarabaoIcon },
+  { id: 'Goat', title: 'Goat', Icon: GoatIcon },
+  { id: 'Pig', title: 'Pig', Icon: PigIcon },
 ];
 
-const CategoryGrid = ({ navigation, userId }) => (
-  <FlatList
-    data={categories}
-    renderItem={({ item }) => (
-      <TouchableOpacity
-        style={styles.iconButton}
-        onPress={() => navigation.navigate('AuctionPage', { category: item.title, userId })}
-      >
-        <View style={styles.iconContainer}>
-          <item.Icon width={88} height={90} fill="#ffffff" />
-        </View>
-      </TouchableOpacity>
-    )}
-    keyExtractor={(item) => item.id}
-    numColumns={3}
-    columnWrapperStyle={styles.columnWrapper}
-    contentContainerStyle={styles.grid}
-  />
-);
+const CategoryGrid = ({ navigation, userId }) => {
+  const [auctionCounts, setAuctionCounts] = useState({});
+
+  useEffect(() => {
+    const fetchAuctionCounts = async () => {
+      const { data, error } = await supabase
+        .from('livestock')
+        .select('category', { count: 'exact' })
+        .eq('status', 'AVAILABLE') // Fetch only active auctions
+        .group('category');
+
+      if (error) {
+        console.error('Error fetching auction counts:', error.message);
+      } else {
+        const counts = {};
+        data.forEach(item => {
+          counts[item.category] = item.count;
+        });
+        setAuctionCounts(counts);
+      }
+    };
+
+    fetchAuctionCounts();
+
+    // Optional: Set up real-time updates for auctions
+    const auctionSubscription = supabase
+      .channel('auction-updates')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'livestock' },
+        () => fetchAuctionCounts()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(auctionSubscription);
+    };
+  }, []);
+
+  return (
+    <FlatList
+      data={categories}
+      renderItem={({ item }) => (
+        <TouchableOpacity
+          style={styles.iconButton}
+          onPress={() => navigation.navigate('AuctionPage', { category: item.title, userId })}
+        >
+          <View style={styles.iconContainer}>
+            <item.Icon width={88} height={90} fill="#ffffff" />
+            {auctionCounts[item.title] > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{auctionCounts[item.title]}</Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      )}
+      keyExtractor={(item) => item.id}
+      numColumns={3}
+      columnWrapperStyle={styles.columnWrapper}
+      contentContainerStyle={styles.grid}
+    />
+  );
+};
 
 const styles = StyleSheet.create({
   iconButton: {
@@ -55,10 +101,27 @@ const styles = StyleSheet.create({
   },
   iconContainer: {
     alignItems: 'center',
+    position: 'relative', // Allow badge positioning
   },
   columnWrapper: {
     justifyContent: 'space-between',
     paddingHorizontal: 10,
+  },
+  badge: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: 'red',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
 

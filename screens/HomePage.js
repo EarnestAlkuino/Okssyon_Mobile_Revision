@@ -1,19 +1,18 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { supabase } from '../supabase';
-import HomeHeader from '../Components/Home/HomeHeader'; // Custom header component
-import CategoryGrid from '../Components/Home/CategoryGrid'; // Livestock categories component
-import AnnouncementBanner from '../Components/Home/AnnouncementBanner'; // Announcements component
-import GradientButton from '../Components/Home/GradientButton'; // Button component
+import HomeHeader from '../Components/Home/HomeHeader';
+import CategoryGrid from '../Components/Home/CategoryGrid';
+import AnnouncementBanner from '../Components/Home/AnnouncementBanner';
+import GradientButton from '../Components/Home/GradientButton';
 
 const HomePage = ({ navigation, route }) => {
   const { userId: userIdFromRoute } = route.params || {};
   const [userName, setUserName] = useState('');
   const [loading, setLoading] = useState(true);
   const [announcements, setAnnouncements] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0); // Notification badge count
+  const [unreadCount, setUnreadCount] = useState(0);
   const flatListRef = useRef(null);
-  const currentIndex = useRef(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -29,6 +28,7 @@ const HomePage = ({ navigation, route }) => {
         userId = user.id;
       }
 
+      // Fetch user's profile name
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('full_name')
@@ -41,6 +41,7 @@ const HomePage = ({ navigation, route }) => {
         setUserName(profileData.full_name);
       }
 
+      // Fetch latest announcements
       const { data: announcementData, error: announcementError } = await supabase
         .from('announcements')
         .select('text, date')
@@ -53,61 +54,132 @@ const HomePage = ({ navigation, route }) => {
         setAnnouncements(announcementData);
       }
 
-      const { data: notifications, error: notificationError } = await supabase
-        .from('notifications')
-        .select('is_read, recipient_id')
-        .eq('recipient_id', userId)
-        .eq('is_read', false);
-
-      if (notificationError) {
-        console.error('Error fetching unread notifications:', notificationError);
-      } else {
-        setUnreadCount(notifications.length);
-      }
+      // Fetch unread notifications
+      fetchUnreadNotifications(userId);
 
       setLoading(false);
     };
 
     fetchData();
 
-    const setupRealTimeListener = async () => {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        console.error('Error fetching user:', authError);
-        return;
-      }
-
-      const channel = supabase
-        .channel('notifications-changes')
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'notifications' },
-          (payload) => {
-            if (payload.new.recipient_id === user.id && !payload.new.is_read) {
-              setUnreadCount((prev) => prev + 1);
-            }
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'notifications' },
-          (payload) => {
-            if (payload.new.recipient_id === user.id && payload.new.is_read) {
-              setUnreadCount((prev) => Math.max(0, prev - 1));
-            }
-          }
-        )
-        .subscribe();
-
-      return channel;
-    };
-
+    // Set up real-time listener
     const channel = setupRealTimeListener();
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [userIdFromRoute, navigation]);
+
+  /**
+   * ✅ Fetch unread notifications from both `notifications` and `notification_bidders` tables.
+   */
+  const fetchUnreadNotifications = async (userId) => {
+    try {
+      // Fetch Seller Notifications
+      const { data: sellerNotifications } = await supabase
+        .from('notifications')
+        .select('id, is_read')
+        .eq('seller_id', userId)
+        .eq('is_read', false);
+
+      // Fetch Bidder Notifications
+      const { data: bidderNotifications } = await supabase
+        .from('notification_bidders')
+        .select('id, is_read')
+        .eq('bidder_id', userId)
+        .eq('is_read', false);
+
+      // Fetch Winner Notifications
+      const { data: winnerNotifications } = await supabase
+        .from('winner_notifications')
+        .select('id, is_read')
+        .eq('winner_id', userId)
+        .eq('is_read', false);
+
+      // Count unread notifications
+      const totalUnread =
+        (sellerNotifications?.length || 0) +
+        (bidderNotifications?.length || 0) +
+        (winnerNotifications?.length || 0);
+      setUnreadCount(totalUnread);
+    } catch (error) {
+      console.error('Error fetching unread notifications:', error.message);
+    }
+  };
+
+  /**
+   * ✅ Mark notification as read and update badge count.
+   */
+  const markNotificationAsRead = async (id) => {
+    try {
+      // ✅ Update notification as read
+      await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+      await supabase.from('notification_bidders').update({ is_read: true }).eq('notification_id', id);
+      await supabase.from('winner_notifications').update({ is_read: true }).eq('id', id);
+
+      // ✅ Update unread count
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+
+      // ✅ Fetch latest unread count
+      fetchUnreadNotifications(userIdFromRoute);
+    } catch (error) {
+      console.error('❌ Error marking notification as read:', error.message);
+    }
+  };
+
+  /**
+   * ✅ Real-time listener for notifications (updates badge count).
+   */
+  const setupRealTimeListener = async () => {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      console.error('Error fetching user:', authError);
+      return;
+    }
+
+    const channel = supabase
+      .channel('notifications-updates')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications' },
+        (payload) => {
+          if (payload.new.seller_id === user.id && !payload.new.is_read) {
+            setUnreadCount((prev) => prev + 1);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notification_bidders' },
+        (payload) => {
+          if (payload.new.bidder_id === user.id && !payload.new.is_read) {
+            setUnreadCount((prev) => prev + 1);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'winner_notifications' },
+        (payload) => {
+          if (payload.new.winner_id === user.id && !payload.new.is_read) {
+            setUnreadCount((prev) => prev + 1);
+          }
+        }
+      )
+      .subscribe();
+
+    return channel;
+  };
+
+  /**
+   * ✅ Ensure the badge count updates when returning to HomePage.
+   */
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchUnreadNotifications(userIdFromRoute);
+    });
+    return unsubscribe;
+  }, [navigation, userIdFromRoute]);
 
   if (loading) {
     return (

@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons'; // For updated icons
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useIsFocused } from '@react-navigation/native';
 import { supabase } from '../supabase';
 import AuctionHeader from '../Components/AuctionHeader';
@@ -20,21 +20,20 @@ const AuctionPage = ({ navigation, route }) => {
   const [livestockData, setLivestockData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch livestock data from Supabase
+  // Function to fetch available livestock
   const fetchLivestockData = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-      .from('livestock')
-      .select('*')
-      .eq('category', category)
-      .eq('status', 'AVAILABLE'); // Only fetch livestock with 'AVAILABLE' status
-  
+        .from('livestock')
+        .select('*')
+        .eq('category', category)
+        .eq('status', 'AVAILABLE'); // Only fetch AVAILABLE livestock
+
       if (error) {
         console.error('Error fetching data:', error.message);
         Alert.alert('Error', `Failed to fetch livestock data: ${error.message}`);
       } else {
-        console.log('Fetched Livestock Data:', data); // Debug log
         setLivestockData(data);
       }
     } catch (err) {
@@ -43,8 +42,57 @@ const AuctionPage = ({ navigation, route }) => {
     }
     setLoading(false);
   };
-  
-  // Add real-time subscription
+
+  // Function to handle auction end
+  const endAuction = async (livestockId) => {
+    try {
+      const { data: highestBid, error: bidError } = await supabase
+        .from('bids')
+        .select('bidder_id')
+        .eq('livestock_id', livestockId)
+        .order('bid_amount', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (bidError) {
+        console.error('Error fetching highest bid:', bidError.message);
+        return;
+      }
+
+      if (!highestBid || !highestBid.bidder_id) {
+        console.log('❌ No winner found. Removing auction...');
+
+        // ❗ If no winner, DELETE the auction
+        const { error: deleteError } = await supabase
+          .from('livestock')
+          .delete()
+          .eq('livestock_id', livestockId);
+
+        if (deleteError) {
+          console.error('Error deleting auction:', deleteError.message);
+        } else {
+          console.log('✅ Auction removed successfully.');
+        }
+      } else {
+        console.log('🏆 Winner found. Updating status...');
+        // ✅ If there's a winner, update status to AUCTION_ENDED
+        const { error: updateError } = await supabase
+          .from('livestock')
+          .update({ status: 'AUCTION_ENDED' })
+          .eq('livestock_id', livestockId);
+
+        if (updateError) {
+          console.error('Error updating auction status:', updateError.message);
+        } else {
+          console.log('✅ Auction updated to AUCTION_ENDED.');
+        }
+      }
+    } catch (err) {
+      console.error('Unexpected error ending auction:', err);
+    }
+  };
+
+  // Real-time updates
   useEffect(() => {
     const subscription = supabase
       .channel('livestock-realtime')
@@ -53,19 +101,18 @@ const AuctionPage = ({ navigation, route }) => {
         { event: '*', schema: 'public', table: 'livestock' },
         (payload) => {
           const { eventType, new: newData, old: oldData } = payload;
-  
+
           setLivestockData((prevData) => {
-            if (eventType === 'INSERT' && newData.category === category && newData.status === 'AVAILABLE') {
+            if (eventType === 'INSERT' && newData.status === 'AVAILABLE') {
               return [newData, ...prevData];
             }
             if (eventType === 'UPDATE') {
-              if (newData.category === category && newData.status === 'AVAILABLE') {
-                return prevData.map((item) =>
-                  item.livestock_id === newData.livestock_id ? newData : item
-                );
-              } else {
-                return prevData.filter((item) => item.livestock_id !== oldData.livestock_id);
+              if (newData.status === 'AUCTION_ENDED') {
+                return prevData.filter((item) => item.livestock_id !== newData.livestock_id);
               }
+              return prevData.map((item) =>
+                item.livestock_id === newData.livestock_id ? newData : item
+              );
             }
             if (eventType === 'DELETE') {
               return prevData.filter((item) => item.livestock_id !== oldData.livestock_id);
@@ -75,12 +122,11 @@ const AuctionPage = ({ navigation, route }) => {
         }
       )
       .subscribe();
-  
+
     return () => {
       subscription.unsubscribe();
     };
-  }, [category]);
-  
+  }, []);
 
   useEffect(() => {
     if (isFocused) {
@@ -124,7 +170,7 @@ const AuctionPage = ({ navigation, route }) => {
       </TouchableOpacity>
     ),
     [handleLivestockSelect]
-  );  
+  );
 
   if (loading) {
     return (
@@ -187,46 +233,16 @@ const styles = StyleSheet.create({
     color: '#2C3E50',
     marginBottom: 8,
   },
-  detailsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  detailValue: {
-    fontSize: 14,
-    marginLeft: 4,
-    color: '#4A5568',
-  },
   priceContainer: {
     position: 'absolute',
     bottom: 8,
     right: 8,
     alignItems: 'flex-end',
   },
-  priceLabel: {
-    fontSize: 12,
-    color: '#6C6C6C',
-  },
   priceText: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#1E7848',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f9f9f9',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#6C6C6C',
   },
 });
 

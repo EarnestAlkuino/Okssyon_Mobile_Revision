@@ -47,26 +47,20 @@ const BottomDrawerModal = ({
   }, [isVisible]);
 
   const handlePlaceBid = async () => {
-    if (!item) {
-      Alert.alert('Error', 'Invalid auction item.');
-      return;
-    }
+    console.log('🔹 handlePlaceBid() started');
   
     if (userId === ownerId) {
+      console.log('❌ Error: User is trying to bid on their own auction');
       Alert.alert('Error', 'You cannot place a bid on your own auction.');
       return;
     }
   
     const parsedBidAmount = parseFloat(bidAmount);
-    if (isNaN(parsedBidAmount)) {
-      Alert.alert('Invalid Bid', 'Please enter a valid bid amount.');
-      return;
-    }
-  
-    if (parsedBidAmount <= currentHighestBid) {
+    if (isNaN(parsedBidAmount) || parsedBidAmount <= currentHighestBid) {
+      console.log('❌ Invalid bid amount:', parsedBidAmount);
       Alert.alert(
         'Invalid Bid',
-        `Your bid must be higher than the current highest bid of ₱${currentHighestBid.toLocaleString()}.`
+        `Your bid must be higher than ₱${currentHighestBid.toLocaleString()}.`
       );
       return;
     }
@@ -74,97 +68,142 @@ const BottomDrawerModal = ({
     setLoading(true);
   
     try {
-      // Fetch the current highest bidder
-      const { data: highestBidderData, error: highestBidderError } = await supabase
+      // ✅ Step 1: Fetch the previous highest bidder
+      const { data: previousBids, error: previousBidError } = await supabase
         .from('bids')
-        .select('bidder_id, bid_amount')
+        .select('bidder_id')
         .eq('livestock_id', item.livestock_id)
         .order('bid_amount', { ascending: false })
         .limit(1);
   
-      if (highestBidderError) {
-        throw highestBidderError;
+      if (previousBidError) {
+        console.error('❌ Error fetching previous highest bidder:', previousBidError.message);
       }
   
-      const currentHighestBidder = highestBidderData?.[0]?.bidder_id;
+      const previousHighestBidder = previousBids.length > 0 ? previousBids[0].bidder_id : null;
   
-      // Insert the new bid into the 'bids' table
-      const { error: bidError } = await supabase
-        .from('bids')
-        .insert([{
+      // ✅ Step 2: Insert the new bid
+      const { error: bidError } = await supabase.from('bids').insert([
+        {
           livestock_id: item.livestock_id,
           bidder_id: userId,
           bid_amount: parsedBidAmount,
           status: 'pending',
-        }]);
+        },
+      ]);
   
       if (bidError) {
+        console.error('❌ Error inserting bid:', bidError.message);
         throw bidError;
       }
   
-      // Update the highest bid state
+      console.log('✅ New bid placed:', parsedBidAmount);
+  
+      // ✅ Step 3: Notify the seller (BID_PLACED) and previous highest bidder (OUTBID)
+      await handleRealTimeNotification(
+        'BID_PLACED',  // ✅ Notification type for the seller
+        `A new bid has been placed on your auction.`,
+        item.livestock_id,
+        userId,  // ✅ Current bidder (who placed the bid)
+        previousHighestBidder  // ✅ Previous highest bidder (who was outbid)
+      );
+  
+      Alert.alert(
+        'Success',
+        `You have successfully placed a bid of ₱${parsedBidAmount.toLocaleString()}.`,
+        [{ text: 'OK', onPress: () => onClose() }]// ✅ Now properly closes modal
+      );
+  
       setCurrentHighestBid(parsedBidAmount);
-  
-      // Notify the seller
-      if (userId !== ownerId) {
-        const sellerMessage = `A new bid of ₱${parsedBidAmount.toLocaleString()} has been placed on your livestock!`;
-        await supabase.from('notifications').insert([{
-          livestock_id: item.livestock_id,
-          recipient_id: ownerId,
-          recipient_role: 'SELLER',
-          notification_type: 'NEW_BID',
-          message: sellerMessage,
-          is_read: false,
-        }]);
-      }
-  
-      // Notify the current highest bidder about being outbid
-      if (currentHighestBidder && currentHighestBidder !== userId) {
-        const outbidMessage = `You have been outbid on the auction for ${item.category || 'this item'}. Place a higher bid to win!`;
-        await supabase.from('notifications').insert([{
-          livestock_id: item.livestock_id,
-          recipient_id: currentHighestBidder,
-          recipient_role: 'BIDDER',
-          notification_type: 'OUTBID',
-          message: outbidMessage,
-          is_read: false,
-        }]);
-      }
-  
-      // Notify the current bidder
-      const bidderMessage = `You have successfully placed a bid of ₱${parsedBidAmount.toLocaleString()} on this livestock!`;
-      await supabase.from('notifications').insert([{
-        livestock_id: item.livestock_id,
-        recipient_id: userId,
-        recipient_role: 'BIDDER',
-        notification_type: 'NEW_BID',
-        message: bidderMessage,
-        is_read: false,
-      }]);
-  
-      Alert.alert('Success', `You have successfully placed a bid of ₱${parsedBidAmount.toLocaleString()}.`);
-  
-      // **Clear bid amount after successful bid**
-      setBidAmount('');
-  
-      // **Automatically close the modal**
-      onClose();
-  
     } catch (error) {
-      console.error('Error placing bid or sending notification:', error);
-      Alert.alert('Error', 'Could not place your bid or send notification. Please try again later.');
+      console.error('❌ Error placing bid:', error.message);
+      Alert.alert('Error', 'Could not place your bid. Please try again later.');
     } finally {
       setLoading(false);
     }
   };
   
+   
  
+   const addToBid = (amount) => {
+     const newBid = (parseInt(bidAmount || 0, 10) + amount).toString();
+     setBidAmount(newBid);
+   };
  
-  const addToBid = (amount) => {
-    const newBid = (parseInt(bidAmount || 0, 10) + amount).toString();
-    setBidAmount(newBid);
+   const handleRealTimeNotification = async (type, message, livestockId, bidderId = null, previousBidderId = null) => {
+    console.log('🔹 Creating real-time notification:', { type, message, livestockId, bidderId, previousBidderId });
+  
+    try {
+      // ✅ Step 1: Fetch the seller_id (owner_id) from livestock
+      const { data: livestockData, error: livestockError } = await supabase
+        .from('livestock')
+        .select('owner_id')
+        .eq('livestock_id', livestockId)
+        .single();
+  
+      if (livestockError) {
+        console.error('❌ Error fetching seller_id:', livestockError.message);
+        return;
+      }
+  
+      const sellerId = livestockData?.owner_id;
+      console.log('✅ Seller ID fetched:', sellerId);
+  
+      if (!sellerId) {
+        console.error('❌ No seller_id found for livestock:', livestockId);
+        return;
+      }
+  
+      // ✅ Step 2: Insert a `BID_PLACED` notification for the seller (instead of bidder)
+      const { data: bidPlacedNotif, error: bidPlacedError } = await supabase
+        .from('notifications')
+        .insert([
+          {
+            livestock_id: livestockId,
+            seller_id: sellerId, // ✅ Sent to seller instead of bidder
+            message: `A new bid has been placed on your auction.`,
+            notification_type: 'BID_PLACED',
+            is_read: false,
+            created_at: new Date().toISOString(),
+          },
+        ])
+        .select();
+  
+      if (bidPlacedError) {
+        console.error('❌ Error inserting BID_PLACED notification:', bidPlacedError.message);
+        return;
+      }
+  
+      console.log('✅ BID_PLACED notification sent to seller:', bidPlacedNotif);
+  
+      // ✅ Step 3: If there's a previous highest bidder, notify them about being outbid
+      if (previousBidderId && previousBidderId !== bidderId) {
+        const { data: outbidNotif, error: outbidError } = await supabase
+          .from('notification_bidders')
+          .insert([
+            {
+              notification_id: bidPlacedNotif[0].id,  // ✅ Correctly linking to notification
+              bidder_id: previousBidderId,
+              notification_type: 'OUTBID',
+              is_read: false,
+              created_at: new Date().toISOString(),
+            },
+          ]);
+  
+        if (outbidError) {
+          console.error('❌ Error inserting OUTBID notification:', outbidError.message);
+        } else {
+          console.log(`✅ OUTBID notification sent to previous highest bidder: ${previousBidderId}`);
+        }
+      }
+  
+    } catch (err) {
+      console.error('❌ Error handling real-time notification:', err.message);
+    }
   };
-
+  
+  
+   
   return (
     <Modal
       transparent
