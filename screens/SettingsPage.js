@@ -2,10 +2,24 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Header from '../Components/Header';
+import { supabase } from '../supabase'; // Import your Supabase client
 
-const SettingsPage = ({ navigation }) => {
-  const handleLogout = () => {
-    navigation.navigate('LoginPage');
+const SettingsPage = ({ navigation, setUnreadCount, setNotifications, setUserName }) => {
+  // Logout handler
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+
+      // Clear the states passed down as props
+      setUnreadCount(0);  // Clear unread count
+      setNotifications([]);  // Reset notifications list
+      setUserName('');  // Clear user data
+
+      // Navigate to LoginPage after logout
+      navigation.navigate('LoginPage');
+    } catch (error) {
+      console.error('❌ Error during logout:', error.message);
+    }
   };
 
   return (
@@ -21,35 +35,11 @@ const SettingsPage = ({ navigation }) => {
       <ScrollView contentContainerStyle={styles.content}>
         {/* General Section */}
         <Text style={styles.sectionTitle}>General</Text>
-        {[
-          { label: 'Account', icon: 'person-outline', target: 'AccountPage' },
-          { label: 'Help', icon: 'help-circle-outline', target: 'HelpPage' },
-          { label: 'Language', icon: 'language-outline', target: 'LanguagePage' },
-          { label: 'About Us', icon: 'information-circle-outline', action: () => alert('About Us Page') },
-        ].map((item, index) => (
+        {[{ label: 'Account', icon: 'person-outline', target: 'AccountPage' }].map((item, index) => (
           <TouchableOpacity
             key={index}
             style={styles.listItem}
             onPress={() => (item.target ? navigation.navigate(item.target) : item.action())}
-          >
-            <View style={styles.listItemContent}>
-              <Ionicons name={item.icon} size={22} color="#34495E" />
-              <Text style={styles.listItemText}>{item.label}</Text>
-            </View>
-            <Ionicons name="chevron-forward-outline" size={20} color="#A0A0A0" />
-          </TouchableOpacity>
-        ))}
-
-        {/* Feedback Section */}
-        <Text style={styles.sectionTitle}>Feedback</Text>
-        {[
-          { label: 'Report a Bug', icon: 'bug-outline', action: () => alert('Report a Bug Page') },
-          { label: 'Send Feedback', icon: 'chatbubble-ellipses-outline', action: () => alert('Send Feedback Page') },
-        ].map((item, index) => (
-          <TouchableOpacity
-            key={index}
-            style={styles.listItem}
-            onPress={item.action}
           >
             <View style={styles.listItemContent}>
               <Ionicons name={item.icon} size={22} color="#34495E" />

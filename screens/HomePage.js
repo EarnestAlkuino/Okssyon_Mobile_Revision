@@ -75,35 +75,55 @@ const HomePage = ({ navigation, route }) => {
    */
   const fetchUnreadNotifications = async (userId) => {
     try {
-      // Fetch Seller Notifications
-      const { data: sellerNotifications } = await supabase
-        .from('notifications')
-        .select('id, is_read')
-        .eq('seller_id', userId)
-        .eq('is_read', false);
+      // Fetch only unread notifications with better filters
+      const [
+        { data: sellerNotifications, error: sellerError },
+        { data: bidderNotifications, error: bidderError },
+        { data: winnerNotifications, error: winnerError }
+      ] = await Promise.all([
+        supabase
+          .from('notifications')
+          .select('id')
+          .eq('seller_id', userId)
+          .eq('is_read', false)
+          .not('id', 'is', null), // Ensure valid notifications only
 
-      // Fetch Bidder Notifications
-      const { data: bidderNotifications } = await supabase
-        .from('notification_bidders')
-        .select('id, is_read')
-        .eq('bidder_id', userId)
-        .eq('is_read', false);
+        supabase
+          .from('notification_bidders')
+          .select('id')
+          .eq('bidder_id', userId)
+          .eq('is_read', false)
+          .not('id', 'is', null), // Ensure valid notifications only
 
-      // Fetch Winner Notifications
-      const { data: winnerNotifications } = await supabase
-        .from('winner_notifications')
-        .select('id, is_read')
-        .eq('winner_id', userId)
-        .eq('is_read', false);
+        supabase
+          .from('winner_notifications')
+          .select('id')
+          .eq('winner_id', userId)
+          .eq('is_read', false)
+          .not('id', 'is', null) // Ensure valid notifications only
+      ]);
 
-      // Count unread notifications
-      const totalUnread =
-        (sellerNotifications?.length || 0) +
-        (bidderNotifications?.length || 0) +
-        (winnerNotifications?.length || 0);
+      if (sellerError) console.error('Seller notifications error:', sellerError);
+      if (bidderError) console.error('Bidder notifications error:', bidderError);
+      if (winnerError) console.error('Winner notifications error:', winnerError);
+
+      // Calculate total unread only if there are actual notifications
+      const totalUnread = 
+        ((sellerNotifications && sellerNotifications.length) || 0) +
+        ((bidderNotifications && bidderNotifications.length) || 0) +
+        ((winnerNotifications && winnerNotifications.length) || 0);
+
+      console.log('📊 Unread counts:', {
+        seller: sellerNotifications?.length || 0,
+        bidder: bidderNotifications?.length || 0,
+        winner: winnerNotifications?.length || 0,
+        total: totalUnread
+      });
+
       setUnreadCount(totalUnread);
     } catch (error) {
-      console.error('Error fetching unread notifications:', error.message);
+      console.error('❌ Error fetching unread notifications:', error.message);
+      setUnreadCount(0); // Reset count on error
     }
   };
 

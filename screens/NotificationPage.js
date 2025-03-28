@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, RefreshControl, ActivityIndicator, SafeAreaView, StatusBar, Alert } from 'react-native';
 import { supabase } from '../supabase';  // Import your Supabase client
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,16 @@ const NotificationPage = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('Unread');
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const calculateUnreadCount = (notifications) => {
+    if (!notifications || notifications.length === 0) return 0;
+    return notifications.filter(notif => {
+      // Handle both direct and nested notification structures
+      const isRead = notif.is_read ?? notif.notifications?.is_read ?? false;
+      return !isRead;
+    }).length;
+  };
 
   const fetchNotifications = async () => {
     setRefreshing(true);
@@ -20,9 +30,10 @@ const NotificationPage = ({ navigation }) => {
       const { data: sellerNotifications, error: sellerError } = await supabase
         .from('notifications')
         .select('id, livestock_id, message, created_at, is_read, notification_type, seller_id')
-        .eq('seller_id', userId) // ✅ Ensures only seller notifications are fetched
+        .eq('seller_id', userId)
+        .neq('notification_type', 'AUCTION_ENDED_OWNER')
         .order('created_at', { ascending: false });
-  
+
       if (sellerError) {
         console.error('❌ Error fetching seller notifications:', sellerError.message);
       }
@@ -56,7 +67,19 @@ const NotificationPage = ({ navigation }) => {
       // ✅ Fetch `NEW_AUCTION` Notifications for Bidders
       const { data: newAuctionNotifications, error: newAuctionError } = await supabase
         .from('notification_bidders')
-        .select('id, notification_id, bidder_id, is_read, created_at, notification_type')
+        .select(`
+          id, 
+          notification_id, 
+          bidder_id, 
+          is_read, 
+          created_at, 
+          notification_type,
+          notifications:notification_id (
+            id,
+            livestock_id,
+            message
+          )
+        `)
         .eq('bidder_id', userId)
         .eq('notification_type', 'NEW_AUCTION')
         .order('created_at', { ascending: false });
@@ -65,42 +88,47 @@ const NotificationPage = ({ navigation }) => {
         console.error('❌ Error fetching NEW_AUCTION notifications:', newAuctionError.message);
       }
   
-      // ✅ Combine all notifications correctly
-      const combinedNotifications = [
-        ...(sellerNotifications || []).map((notif) => ({
-          id: notif.id,
-          livestock_id: notif.livestock_id || 'Unknown',
-          message: notif.message || 'No message available',
-          created_at: notif.created_at || new Date().toISOString(),
-          is_read: notif.is_read,
-          notification_type: notif.notification_type || 'Unknown',
-          userType: 'seller',
+      const removeDuplicates = (notifications) => {
+        const seen = new Set();
+        return notifications.filter(notif => {
+          const notification = notif.notifications ? notif.notifications : notif;
+          const id = notification.id || notif.id;
+          const type = notification.notification_type || notif.notification_type;
+          const created = notification.created_at || notif.created_at;
+          
+          const key = `${id}-${type}-${created}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      };
+
+      const combinedNotifications = removeDuplicates([
+        ...(sellerNotifications || []).map(notif => ({
+          ...notif,
+          userType: 'seller'
         })),
-        ...(bidderNotifications || []).map((notif) => ({
-          id: notif.id,
-          livestock_id: notif.notifications?.livestock_id || 'Unknown',
-          message: notif.notifications?.message || 'No message available',
-          created_at: notif.notifications?.created_at || new Date().toISOString(),
-          is_read: notif.is_read,
-          notification_type: notif.notification_type || notif.notifications?.notification_type || 'Unknown',
-          userType: 'bidder',
+        ...(bidderNotifications || []).map(notif => {
+          const notification = notif.notifications || {};
+          return {
+            id: notif.notification_id || notif.id,
+            livestock_id: notification.livestock_id,
+            message: notification.message,
+            created_at: notification.created_at || notif.created_at,
+            is_read: notif.is_read,
+            notification_type: notification.notification_type || notif.notification_type,
+            userType: 'bidder'
+          };
+        }),
+        ...(winnerNotifications || []).map(notif => ({
+          ...notif,
+          userType: 'winner'
         })),
-        ...(winnerNotifications || []).map((notif) => ({
-          id: notif.id,
-          livestock_id: notif.livestock_id || 'Unknown',
-          message: notif.message || 'No message available',
-          created_at: notif.created_at || new Date().toISOString(),
-          is_read: notif.is_read,
-          notification_type: notif.notification_type || 'AUCTION_ENDED_WINNER',
-          userType: 'winner',
-        })),
-      ];
-  
-      // ✅ Sort notifications by newest first
+      ]);
+
       combinedNotifications.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  
-      // ✅ Update state with correct notifications
       setNotifications(combinedNotifications);
+      setUnreadCount(calculateUnreadCount(combinedNotifications));
     } catch (err) {
       console.error('❌ Failed to fetch notifications:', err.message);
     } finally {
@@ -109,8 +137,6 @@ const NotificationPage = ({ navigation }) => {
     }
   };
   
-  
-
   useEffect(() => {
     const getUserId = async () => {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -123,25 +149,46 @@ const NotificationPage = ({ navigation }) => {
   
       console.log("✅ Subscribing to notifications for user:", userId);
   
-      // Listen for new seller notifications
       const sellerNotifChannel = supabase
         .channel('seller_notifications_realtime')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
-          console.log("🔔 New seller notification:", payload);
-          setNotifications((prev) => [payload.new, ...prev]);
+        .on('postgres_changes', 
+          { 
+            event: 'INSERT', 
+            schema: 'public', 
+            table: 'notifications',
+            filter: `seller_id=eq.${userId}`
+          }, 
+          (payload) => {
+            if (payload.new.seller_id === userId) {
+              console.log("🔔 New seller notification:", payload);
+              setNotifications((prev) => [{
+                ...payload.new,
+                userType: 'seller'
+              }, ...prev]);
+            }
         })
         .subscribe();
   
-      // Listen for new bidder notifications
       const bidderNotifChannel = supabase
         .channel('bidder_notifications_realtime')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notification_bidders' }, (payload) => {
-          console.log("🔔 New bidder notification:", payload);
-          setNotifications((prev) => [payload.new, ...prev]);
+        .on('postgres_changes', 
+          { 
+            event: 'INSERT', 
+            schema: 'public', 
+            table: 'notification_bidders',
+            filter: `bidder_id=eq.${userId}`
+          }, 
+          (payload) => {
+            if (payload.new.bidder_id === userId) {
+              console.log("🔔 New bidder notification:", payload);
+              setNotifications((prev) => [{
+                ...payload.new,
+                userType: 'bidder'
+              }, ...prev]);
+            }
         })
         .subscribe();
   
-      // Listen for new winner notifications
       const winnerNotifChannel = supabase
         .channel('winner_notifications_realtime')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'winner_notifications' }, (payload) => {
@@ -150,13 +197,18 @@ const NotificationPage = ({ navigation }) => {
         })
         .subscribe();
   
-      // Listen for NEW_AUCTION notifications
       const newAuctionNotifChannel = supabase
         .channel('new_auction_notifications_realtime')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notification_bidders' }, (payload) => {
-          console.log("📢 New auction notification received:", payload);
-          setNotifications((prev) => [payload.new, ...prev]);
-        })
+        .on('postgres_changes', 
+          { 
+            event: 'INSERT', 
+            schema: 'public', 
+            table: 'notification_bidders',
+            filter: `bidder_id=eq.${userId}`
+          }, 
+          (payload) => {
+            console.log("📢 New auction notification received:", payload);
+          })
         .subscribe();
   
       return () => {
@@ -169,10 +221,8 @@ const NotificationPage = ({ navigation }) => {
     };
   
     subscribeToNotifications();
-    fetchNotifications(); // Initial fetch to load existing notifications
-  
+    fetchNotifications();
   }, []);
-  
   
   const handleNotificationPress = (item) => {
     if (!item || !item.notification_type) {
@@ -182,11 +232,10 @@ const NotificationPage = ({ navigation }) => {
   
     console.log('📌 Navigating based on notification type:', item.notification_type, item);
   
-    // ❌ Disable bid-related notifications if the auction is ended
     const isBidRelated = ['NEW_BID', 'OUTBID', 'BID_PLACED', 'BID_CONFIRMED'].includes(item.notification_type);
     if (isBidRelated && item.status === 'AUCTION_ENDED') {
       Alert.alert('Auction Ended', 'Bidding is no longer allowed.');
-      return; // Prevent navigation
+      return;
     }
   
     markNotificationAsRead(item.id);
@@ -224,28 +273,36 @@ const NotificationPage = ({ navigation }) => {
     }
   };
   
-  
-
-  // Mark notification as read
   const markNotificationAsRead = async (id) => {
-    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-    await supabase.from('notification_bidders').update({ is_read: true }).eq('notification_id', id);
+    try {
+      // Update in database
+      await Promise.all([
+        supabase.from('notifications').update({ is_read: true }).eq('id', id),
+        supabase.from('notification_bidders').update({ is_read: true }).eq('notification_id', id),
+        supabase.from('winner_notifications').update({ is_read: true }).eq('id', id)
+      ]);
 
-    setNotifications((prev) =>
-      prev.map((notif) => (notif.id === id ? { ...notif, is_read: true } : notif))
-    );
+      // Update local state
+      setNotifications(prevNotifications => {
+        const updated = prevNotifications.map(notif => 
+          (notif.id === id || notif.notification_id === id) ? { ...notif, is_read: true } : notif
+        );
+        
+        // Recalculate unread count from the updated notifications
+        const newUnreadCount = updated.filter(notif => !notif.is_read).length;
+        setUnreadCount(newUnreadCount);
+        
+        return updated;
+      });
+    } catch (error) {
+      console.error('❌ Error marking notification as read:', error.message);
+    }
   };
-
-
-
   
-  
-  // Handle tab change (Unread / All)
   const handleTabChange = (tab) => {
     setActiveTab(tab);
   };
 
-  // Render notification item
   const renderNotificationItem = ({ item }) => {
     const message = item.message || 'No message available';
     const notificationType = item.notification_type || 'Unknown';
@@ -268,8 +325,11 @@ const NotificationPage = ({ navigation }) => {
     );
   };
 
-  // Filter notifications based on the active tab (Unread or All)
-  const filteredNotifications = activeTab === 'Unread' ? notifications.filter((notif) => !notif.is_read) : notifications;
+  const filteredNotifications = useMemo(() => {
+    return activeTab === 'Unread' 
+      ? notifications.filter(notif => !notif.is_read)
+      : notifications;
+  }, [notifications, activeTab]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -287,7 +347,9 @@ const NotificationPage = ({ navigation }) => {
           style={[styles.tab, activeTab === 'Unread' && styles.activeTab]}
           onPress={() => handleTabChange('Unread')}
         >
-          <Text style={[styles.tabText, activeTab === 'Unread' && styles.activeTabText]}>Unread</Text>
+          <Text style={[styles.tabText, activeTab === 'Unread' && styles.activeTabText]}>
+            Unread {unreadCount > 0 && `(${unreadCount})`}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'All' && styles.activeTab]}

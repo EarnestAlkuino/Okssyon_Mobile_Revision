@@ -355,15 +355,20 @@ const LivestockAuctionDetailPage = ({ route, navigation }) => {
   const closeDrawer = () => setDrawerVisible(false);
 
   const navigateToForum = () => {
+    if (!item || !item.livestock_id || !userId) {
+      console.error('Error: Required data missing for navigation.');
+      return;
+    }
+  
+    // Navigate to ForumPage with livestock and user details
     navigation.navigate('ForumPage', {
-      item: {
-        livestock_id: item.livestock_id,
-        category: item.category || 'Unknown',
-        created_by: item.created_by,
-      },
-      userId: userId,
+      livestockId: item.livestock_id,  // Pass the livestock ID
+      category: item.category || 'Unknown',  // Pass the category (use 'Unknown' as default if not available)
+      createdBy: item.created_by,  // Pass the user who created the item
+      userId: userId,  // Pass the current userId (either seller or bidder)
     });
   };
+  
 
   const navigateToEdit = () => {
     if (userId !== item.owner_id) {

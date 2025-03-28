@@ -17,14 +17,17 @@ import AuctionDetailsHeader from '../Components/LivestockAuctionDetailPage/Aucti
 import { supabase } from '../supabase';
 
 const ForumPage = ({ route, navigation }) => {
-  const { item, userId: userIdFromParams } = route.params || {};
-  const placeholderImage = 'https://via.placeholder.com/50';
+  const { livestockId, userId, threadId, notificationType } = route.params || {};
 
-  const [userId, setUserId] = useState(userIdFromParams);
+  if (!livestockId || !userId) {
+    Alert.alert('Error', 'Required data is missing. Please try again.');
+    return; // Prevent rendering if critical data is missing
+  }
+
   const [threads, setThreads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
-  const [replyToThreadId, setReplyToThreadId] = useState(null);
+  const [replyToThreadId, setReplyToThreadId] = useState(threadId || null); // Set threadId if available
   const [expandedThreads, setExpandedThreads] = useState({});
   const [livestockDetails, setLivestockDetails] = useState({
     breed: 'Unknown',
@@ -32,31 +35,24 @@ const ForumPage = ({ route, navigation }) => {
     category: 'Unknown',
   });
 
-  useEffect(() => {
-    // Fetch userId if not provided
-    const fetchUserId = async () => {
-      if (!userId) {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error || !user) {
-          console.error('Error fetching user from Supabase:', error?.message || 'No user found');
-          Alert.alert('Error', 'Failed to retrieve user information. Please log in again.');
-          navigation.navigate('LoginPage');
-        } else {
-          setUserId(user.id);
-        }
-      }
-    };
+  const fetchUserId = async () => {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+      console.error('Error fetching user:', error?.message || 'No user found');
+      return null;  // Return null if no user is found or there is an error
+    }
+    return user.id;  // Return the valid UUID from Supabase session
+  };
+  
 
-    fetchUserId();
-  }, [userId]);
-
+  // Fetch forum threads related to the livestock
   useEffect(() => {
     fetchThreads();
     fetchLivestockDetails();
-  }, [item.livestock_id]);
+  }, [livestockId]);
 
+  // Fetch threads from the forum
   const fetchThreads = async () => {
-    if (!livestockId) return;
     setLoading(true);
     try {
       const { data: threadsData, error } = await supabase
@@ -72,9 +68,9 @@ const ForumPage = ({ route, navigation }) => {
         `)
         .eq('item_id', livestockId)
         .order('created_at', { ascending: true });
-  
+
       if (error) throw error;
-  
+
       setThreads(threadsData);
     } catch (error) {
       console.error('Error fetching threads:', error.message);
@@ -82,18 +78,18 @@ const ForumPage = ({ route, navigation }) => {
       setLoading(false);
     }
   };
-  
+
+  // Fetch livestock details (optional for display in the forum)
   const fetchLivestockDetails = async () => {
-    if (!livestockId) return;
     try {
       const { data: livestockData, error } = await supabase
         .from('livestock')
         .select('breed, weight, category, owner_id')
         .eq('livestock_id', livestockId)
         .single();
-  
+
       if (error) throw error;
-  
+
       setLivestockDetails({
         breed: livestockData.breed || 'Unknown',
         weight: livestockData.weight || 'Unknown',
@@ -104,108 +100,172 @@ const ForumPage = ({ route, navigation }) => {
       console.error('Error fetching livestock details:', error.message);
     }
   };
-  
+
 
   const sendMessage = async () => {
+    const userId = await fetchUserId();  // Fetch valid userId
+  
+    if (!userId) {
+      Alert.alert('Error', 'User is not logged in. Please try again.');
+      return;
+    }
+  
     if (!newMessage.trim()) {
       Alert.alert('Error', 'Message cannot be empty.');
       return;
     }
-
-    if (!userId) {
-      Alert.alert('Error', 'Unable to send message. Please log in and try again.');
-      return;
-    }
-
+  
     try {
-      // Insert the new thread/reply
+      // Insert the new thread or reply into the database
       const { data: newThread, error: threadError } = await supabase
         .from('forum_threads')
-        .insert([
-          {
-            item_id: item.livestock_id,
-            message: newMessage.trim(),
-            created_by: userId,
-            parent_id: replyToThreadId, // Associate reply with a thread
-          },
-        ])
+        .insert([{
+          item_id: livestockId,
+          message: newMessage.trim(),
+          created_by: userId,
+          parent_id: replyToThreadId,  // Link reply to a specific thread if available
+        }])
         .select('*')
         .single();
-
+  
       if (threadError) throw threadError;
-
+  
       setNewMessage('');
       setReplyToThreadId(null);
-      fetchThreads(); // Refresh threads after sending
-
-      // ✅ Determine if the sender is the seller
+      fetchThreads();  // Refresh threads after sending
+  
+      // Determine whether the user is the seller or bidder
       const isSeller = userId === livestockDetails.owner_id;
-
+  
       if (isSeller) {
-        // ✅ Notify all bidders when the seller responds
+        // Notify all bidders when the seller replies
         const { data: bidders, error: bidderError } = await supabase
           .from('bids')
           .select('bidder_id')
-          .eq('livestock_id', item.livestock_id);
-
-        if (bidderError) {
-          console.error('Error fetching bidders:', bidderError.message);
-        } else {
-          // ✅ Insert notifications in `notification_bidders` table
-          const bidderNotifications = bidders.map((bidder) => ({
-            notification_id: item.livestock_id, // Reference to the auction
-            bidder_id: bidder.bidder_id, // ✅ Notify each bidder
-            notification_type: 'FORUM_ANSWER',
-            message: `The seller has responded to your question about ${livestockDetails.category}.`,
+          .eq('livestock_id', livestockId);
+  
+        if (bidderError) throw bidderError;
+  
+        // Insert a new notification into the forum_notifications table
+        const { data: notificationData, error: notificationError } = await supabase
+          .from('forum_notifications')
+          .insert([{
+            livestock_id: livestockId,
+            user_id: livestockDetails.owner_id,
+            notification_type: 'FORUM_ANSWER', // Notification type for seller replies
+            message: 'The seller has replied to your question.',
             is_read: false,
-            created_at: new Date(),
-          }));
-
-          const { error: bidderNotificationError } = await supabase
-            .from('notification_bidders')
-            .insert(bidderNotifications);
-
-          if (bidderNotificationError) {
-            console.error('Error sending notifications to bidders:', bidderNotificationError.message);
-          }
-        }
+            created_at: new Date().toISOString(),
+            thread_id: newThread.thread_id,  // Attach the thread ID to the notification
+          }])
+          .select('*')
+          .single();
+  
+        if (notificationError) throw notificationError;
+  
+        // Now that we have the notification_id, insert into notification_bidders
+        const notifications = bidders.map((bidder) => ({
+          notification_id: notificationData.id,  // Reference the inserted notification_id
+          bidder_id: bidder.bidder_id,  // Notify each bidder
+          notification_type: 'FORUM_ANSWER',
+          is_read: false,
+          created_at: new Date().toISOString(),
+        }));
+  
+        const { error: insertError } = await supabase
+          .from('notification_bidders')
+          .insert(notifications);
+  
+        if (insertError) throw insertError;
       } else {
-        // ✅ Notify the seller when a bidder asks a question
-        const { error: sellerNotificationError } = await supabase
-          .from('notifications')
-          .insert([
-            {
-              livestock_id: item.livestock_id,
-              seller_id: livestockDetails.owner_id, // ✅ Correct column
-              notification_type: 'FORUM_QUESTION',
-              message: `A bidder has posted a question about your ${livestockDetails.category}.`,
-              is_read: false,
-              created_at: new Date(),
-            },
-          ]);
-
-        if (sellerNotificationError) {
-          console.error('Error sending notification to seller:', sellerNotificationError.message);
-        }
+        // Notify the seller if a bidder posts a question
+        const { error: sellerNotifError } = await supabase
+          .from('forum_notifications')
+          .insert([{
+            livestock_id: livestockId,
+            user_id: livestockDetails.owner_id,
+            notification_type: 'FORUM_QUESTION',
+            message: 'A bidder posted a question on your livestock.',
+            is_read: false,
+            created_at: new Date().toISOString(),
+            thread_id: newThread.thread_id,  // Attach the thread ID to the notification
+          }]);
+  
+        if (sellerNotifError) throw sellerNotifError;
       }
     } catch (error) {
-      console.error('Error sending message or notifications:', error.message);
+      console.error('❌ Error sending message or notifications:', error.message);
     }
   };
-
   
-
+  
+  
+  
+  const handleForumNotification = async () => {
+    // Get the actual userId
+    const userId = await fetchUserId();
+    if (!userId) {
+      console.error("User not authenticated");
+      return;  // Exit if user is not authenticated
+    }
+  
+    const isSeller = userId === livestockDetails.owner_id;
+  
+    if (isSeller) {
+      // Notify all bidders when the seller replies
+      try {
+        const { data: bidders, error } = await supabase
+          .from('bids')
+          .select('bidder_id')
+          .eq('livestock_id', livestockId);
+  
+        if (error) {
+          console.error('Error fetching bidders:', error.message);
+        }
+  
+        bidders.forEach(async (bidder) => {
+          await supabase.from('notifications').insert([{
+            notification_id: livestockId,
+            bidder_id: bidder.bidder_id,
+            notification_type: 'FORUM_ANSWER',
+            message: `The seller has responded to your question about this livestock.`,
+            is_read: false,
+            created_at: new Date(),
+          }]);
+        });
+      } catch (error) {
+        console.error('Error sending notifications to bidders:', error.message);
+      }
+    } else {
+      // Notify the seller when a bidder posts a question
+      try {
+        await supabase.from('notifications').insert([{
+          livestock_id: livestockId,
+          seller_id: livestockDetails.owner_id,
+          notification_type: 'FORUM_QUESTION',
+          message: `A bidder has posted a question about your livestock.`,
+          is_read: false,
+          created_at: new Date(),
+        }]);
+      } catch (error) {
+        console.error('Error sending notification to seller:', error.message);
+      }
+    }
+  };
+  
   const toggleThreadExpansion = (threadId) => {
     setExpandedThreads((prevState) => ({
       ...prevState,
-      [threadId]: !prevState[threadId],
+      [threadId]: !prevState[threadId],  // Toggle the expanded state for the specific thread
     }));
   };
+  
 
+  // Render individual thread
   const renderThread = ({ item: thread }) => {
     const isSeller = thread.created_by === livestockDetails.owner_id;
     const role = isSeller ? 'Seller' : 'Bidder';
-    const profileImage = thread.profiles?.profile_image || placeholderImage;
+    const profileImage = thread.profiles?.profile_image || 'https://via.placeholder.com/50';  // Default placeholder image
 
     const childReplies = threads.filter((reply) => reply.parent_id === thread.thread_id);
 
@@ -243,7 +303,7 @@ const ForumPage = ({ route, navigation }) => {
         {expandedThreads[thread.thread_id] &&
           childReplies.map((reply) => (
             <View key={reply.thread_id} style={styles.replyContainer}>
-              <Image source={{ uri: reply.profiles?.profile_image || placeholderImage }} style={styles.replyImage} />
+              <Image source={{ uri: reply.profiles?.profile_image || 'https://via.placeholder.com/50' }} style={styles.replyImage} />
               <View>
                 <Text style={[styles.roleText, reply.created_by === livestockDetails.owner_id && styles.sellerRole]}>
                   Reply by {reply.profiles?.full_name || reply.created_by}
@@ -268,17 +328,22 @@ const ForumPage = ({ route, navigation }) => {
       {loading ? (
         <ActivityIndicator size="large" color="#257446" style={styles.loader} />
       ) : (
-        <FlatList
-          data={threads.filter((thread) => !thread.parent_id)}
-          renderItem={renderThread}
-          keyExtractor={(thread) => thread.thread_id.toString()}
-          contentContainerStyle={styles.threadList}
-        />
+        // Update the keyExtractor to ensure unique keys
+<FlatList
+  data={threads.filter((thread) => !thread.parent_id)}  // Only top-level threads
+  renderItem={renderThread}
+  keyExtractor={(thread) => thread.thread_id ? thread.thread_id.toString() : `thread_${Math.random()}`}
+  contentContainerStyle={styles.threadList}
+/>
+
+
+
+
+
       )}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.inputContainer}
-      >
+
+      {/* Input for new messages */}
+      <KeyboardAvoidingView style={styles.inputContainer} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <TextInput
           style={styles.input}
           placeholder={replyToThreadId ? 'Write your reply...' : 'Start a new discussion...'}
@@ -297,6 +362,8 @@ const ForumPage = ({ route, navigation }) => {
     </SafeAreaView>
   );
 };
+
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
